@@ -1,7 +1,10 @@
 from .Matrice import villes as default_villes, M as default_M
 
 def bfs(ville_depart, matrix=None, labels=None):
-    """Parcours en Largeur (Breadth-First Search)."""
+    """
+    Parcours en Largeur (BFS).
+    Renvoie les arêtes de l'arbre de découverte pour un affichage correct.
+    """
     if matrix is None: matrix = default_M
     if labels is None: labels = default_villes
 
@@ -14,22 +17,32 @@ def bfs(ville_depart, matrix=None, labels=None):
     visited = [False] * n
     queue = [start_idx]
     visited[start_idx] = True
-    parcours = []
+    
+    parcours = []           # Ordre simple (pour info texte)
+    discovery_edges = []    # Arêtes de l'arbre (pour le dessin)
 
     while queue:
         u = queue.pop(0)
         parcours.append(labels[u])
 
         for v in range(n):
-            # Si il y a une arête et que le noeud n'est pas visité
-            if matrix[u][v] != 0 and matrix[u][v] != float('inf') and not visited[v]:
+            weight = matrix[u][v]
+            # Si on trouve un voisin non visité
+            if weight != 0 and weight != float('inf') and not visited[v]:
                 visited[v] = True
                 queue.append(v)
+                # C'est ici qu'on capture le lien "u a découvert v"
+                discovery_edges.append((labels[u], labels[v]))
 
-    return parcours
+    return {
+        "parcours": parcours,
+        "edges": discovery_edges
+    }
 
 def dfs(ville_depart, matrix=None, labels=None):
-    """Parcours en Profondeur (Depth-First Search)."""
+    """
+    Parcours en Profondeur (DFS).
+    """
     if matrix is None: matrix = default_M
     if labels is None: labels = default_villes
 
@@ -41,13 +54,22 @@ def dfs(ville_depart, matrix=None, labels=None):
     n = len(labels)
     visited = [False] * n
     parcours = []
+    discovery_edges = []
 
     def _dfs_recursive(u):
         visited[u] = True
         parcours.append(labels[u])
+        
         for v in range(n):
-            if matrix[u][v] != 0 and matrix[u][v] != float('inf') and not visited[v]:
+            weight = matrix[u][v]
+            if weight != 0 and weight != float('inf') and not visited[v]:
+                # On note l'arête AVANT de plonger récursivement
+                discovery_edges.append((labels[u], labels[v]))
                 _dfs_recursive(v)
 
     _dfs_recursive(start_idx)
-    return parcours
+    
+    return {
+        "parcours": parcours,
+        "edges": discovery_edges
+    }

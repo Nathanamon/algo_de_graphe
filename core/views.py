@@ -139,91 +139,38 @@ def calculer(request):
                 'taille': len(labels)
             }
 
-        # ==================== BFS ====================
         elif algo == 'bfs':
-            if not depart:
-                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ'})
-            
             res = bfs_dfs.bfs(depart, matrix=matrix, labels=labels)
+            if "error" in res: return JsonResponse({'status': 'error', 'error': res['error']})
             
-            if isinstance(res, dict) and "error" in res:
-                return JsonResponse({'status': 'error', 'error': res['error']})
-            
-            path_nodes = res
-            resultat = {
-                'type': 'BFS (Parcours en Largeur)',
-                'depart': depart,
-                'ordre_visite': res,
-                'parcours': ' → '.join(res),
-                'noeuds_visites': len(res)
-            }
+            # On envoie les arêtes pour le dessin (highlight_edges)
+            path_nodes = res['parcours'] 
+            highlight_edges = res['edges'] 
+            resultat = {'parcours_ordre': " -> ".join(res['parcours'])}
 
-        # ==================== DFS ====================
         elif algo == 'dfs':
-            if not depart:
-                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ'})
-            
             res = bfs_dfs.dfs(depart, matrix=matrix, labels=labels)
+            if "error" in res: return JsonResponse({'status': 'error', 'error': res['error']})
             
-            if isinstance(res, dict) and "error" in res:
-                return JsonResponse({'status': 'error', 'error': res['error']})
-            
-            path_nodes = res
-            resultat = {
-                'type': 'DFS (Parcours en Profondeur)',
-                'depart': depart,
-                'ordre_visite': res,
-                'parcours': ' → '.join(res),
-                'noeuds_visites': len(res)
-            }
+            path_nodes = res['parcours']
+            highlight_edges = res['edges']
+            resultat = {'parcours_ordre': " -> ".join(res['parcours'])}
 
-        # ==================== PRIM ====================
         elif algo == 'prim':
-            if not depart:
-                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ pour Prim'})
-            
             res = prim_kruskal.prim(depart, matrix=matrix, labels=labels)
+            if "error" in res: return JsonResponse({'status': 'error', 'error': res['error']})
             
-            if "error" in res:
-                return JsonResponse({'status': 'error', 'error': res['error']})
-            
-            # Extraire tous les nœuds impliqués
-            nodes_set = set()
-            for u, v in res['edges']:
-                nodes_set.add(u)
-                nodes_set.add(v)
-            path_nodes = list(nodes_set)
-            
-            resultat = {
-                'type': 'Prim (Arbre Couvrant Minimal)',
-                'depart': depart,
-                'aretes': [f"{u} ↔ {v}" for u, v in res['edges']],
-                'poids_total': res['weight'],
-                'nombre_aretes': len(res['edges']),
-                'noeuds_couverts': len(nodes_set)
-            }
+            highlight_edges = res['edges']
+            # On allume tous les nœuds en vert pour montrer qu'ils sont couverts
+            path_nodes = labels 
+            resultat = {'cout_total': res['weight'], 'aretes': res['edges']}
 
-        # ==================== KRUSKAL ====================
         elif algo == 'kruskal':
             res = prim_kruskal.kruskal(matrix=matrix, labels=labels)
             
-            if "error" in res:
-                return JsonResponse({'status': 'error', 'error': res['error']})
-            
-            # Extraire tous les nœuds impliqués
-            nodes_set = set()
-            for u, v in res['edges']:
-                nodes_set.add(u)
-                nodes_set.add(v)
-            path_nodes = list(nodes_set)
-            
-            resultat = {
-                'type': 'Kruskal (Arbre Couvrant Minimal)',
-                'aretes': [f"{u} ↔ {v}" for u, v in res['edges']],
-                'poids_total': res['weight'],
-                'nombre_aretes': len(res['edges']),
-                'noeuds_couverts': len(nodes_set)
-            }
+            highlight_edges = res['edges']
+            path_nodes = labels 
+            resultat = {'cout_total': res['weight'], 'aretes': res['edges']}
 
         # ==================== PERT ====================
         elif algo == 'pert':
