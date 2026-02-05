@@ -538,103 +538,84 @@
 
         // --- APPEL API ---
         async function lancerCalcul() {
-            const btn = document.getElementById('btn-run');
-            const resultsDiv = document.getElementById('results-panel');
-            
-            btn.innerHTML = '⏳ Calcul...';
-            btn.disabled = true;
+    const btn = document.getElementById('btn-run');
+    const resultsDiv = document.getElementById('results-panel');
+    
+    btn.innerHTML = '⏳ Calcul...';
+    btn.disabled = true;
 
-            try {
-                const algo = document.getElementById('algo-select').value;
-                let mStr = null, lStr = null, pertStr = null;
+    try {
+        const algo = document.getElementById('algo-select').value;
+        let mStr = null, lStr = null, pertStr = null;
 
-                // Préparation des données
-                if (isCustom) {
-                    if (algo === 'pert') {
-                        // Récupération du JSON PERT
-                        pertStr = document.getElementById('pert-json-input').value;
-                        // On essaie de parser pour prévisualiser (optionnel)
-                        try {
-                            // On ne peut pas facilement dessiner le graphe PERT avant le calcul du backend
-                            // car il faut transformer les tâches en noeuds/liens
-                        } catch(e) {}
-                    } else {
-                        // Récupération Matrice classique
-                        mStr = document.getElementById('matrix-input').value;
-                        lStr = document.getElementById('labels-input').value;
-                    }
-                } else {
-                    // Données par défaut
-                    mStr = JSON.stringify(defaultMatrix);
-                    lStr = defaultLabels.join(', ');
-                }
-
-                const depart = document.getElementById('start-node').value;
-                const arrivee = document.getElementById('end-node').value;
-
-                // Envoi
-                const response = await fetch('/api/calculer/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: JSON.stringify({
-                        algo: algo, 
-                        matrix: mStr, 
-                        labels: lStr,
-                        pert_data: pertStr, // Nouveau champ !
-                        depart: depart, 
-                        arrivee: arrivee
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    if (data.new_graph) {
-                        currentMatrix = data.new_graph.matrix;
-                        currentLabels = data.new_graph.labels;
-                        document.getElementById('node-count').innerText = currentLabels.length;
-                    } else if (isCustom && algo !== 'pert') {
-                         // Mise à jour locale pour les algos classiques custom
-                         try {
-                            currentMatrix = JSON.parse(mStr.replace(/'/g, '"').replace(/inf/g, 'null'));
-                            currentLabels = lStr.split(',').map(s => s.trim());
-                         } catch(e) {}
-                    }
-
-                    switchTab('visu');
-                    
-                    setTimeout(() => {
-                        drawGraph(currentMatrix, currentLabels, data.path);
-                    }, 50);
-
-                    // Affichage résultat texte
-                    let html = `<div class="result-card"><h3>✅ Résultat : ${algo.toUpperCase()}</h3>`;
-                    
-                    if (data.path && data.path.length > 0) {
-                         html += `<div style="display:flex; gap:5px; flex-wrap:wrap; margin:10px 0;">
-                            ${data.path.map(n => `<span style="background:var(--accent); color:#000; padding:2px 8px; border-radius:4px; font-weight:bold;">${n}</span>`).join(' ➜ ')}
-                         </div>`;
-                    }
-                    html += `<pre>${JSON.stringify(data.result, null, 2)}</pre></div>`;
-                    resultsDiv.innerHTML = html;
-
-                } else {
-                    resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur</h3><p>${data.error}</p></div>`;
-                    switchTab('res');
-                }
-
-            } catch (err) {
-                console.error(err);
-                resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur Système</h3><p>${err}</p></div>`;
-                switchTab('res');
-            } finally {
-                btn.innerHTML = '▶ Lancer l\'analyse';
-                btn.disabled = false;
+        if (isCustom) {
+            if (algo === 'pert') {
+                pertStr = document.getElementById('pert-json-input').value;
+            } else {
+                mStr = document.getElementById('matrix-input').value;
+                lStr = document.getElementById('labels-input').value;
             }
+        } else {
+            mStr = JSON.stringify(defaultMatrix);
+            lStr = defaultLabels.join(', ');
         }
+
+        const depart = document.getElementById('start-node').value;
+        const arrivee = document.getElementById('end-node').value;
+
+        const response = await fetch('/api/calculer/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                algo: algo, 
+                matrix: mStr, 
+                labels: lStr,
+                pert_data: pertStr,
+                depart: depart, 
+                arrivee: arrivee
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            if (data.new_graph) {
+                currentMatrix = data.new_graph.matrix;
+                currentLabels = data.new_graph.labels;
+                document.getElementById('node-count').innerText = currentLabels.length;
+            } else if (isCustom && algo !== 'pert') {
+                try {
+                    currentMatrix = JSON.parse(mStr.replace(/'/g, '"').replace(/inf/g, 'null'));
+                    currentLabels = lStr.split(',').map(s => s.trim());
+                } catch(e) {}
+            }
+
+            switchTab('visu');
+            
+            setTimeout(() => {
+                drawGraph(currentMatrix, currentLabels, data.path);
+            }, 50);
+
+            // ✅ NOUVEAU : Utiliser la fonction de formatage
+            resultsDiv.innerHTML = formatResultDisplay(data);
+
+        } else {
+            resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur</h3><p>${data.error}</p></div>`;
+            switchTab('res');
+        }
+
+    } catch (err) {
+        console.error(err);
+        resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur Système</h3><p>${err}</p></div>`;
+        switchTab('res');
+    } finally {
+        btn.innerHTML = '▶ Lancer l\'analyse';
+        btn.disabled = false;
+    }
+}
 
         function getCookie(name) {
             let cookieValue = null;
@@ -650,6 +631,203 @@
             }
             return cookieValue;
         }
+
+        function formatResultDisplay(data) {
+    const result = data.result;
+    let html = `<div class="result-card">`;
+    
+    // En-tête avec le type d'algorithme
+    html += `<h3>✅ ${result.type || 'Résultat'}</h3>`;
+    
+    // Affichage selon le type d'algorithme
+    if (result.type && result.type.includes('Dijkstra')) {
+        html += `
+            <div class="result-section">
+                <p><strong>📍 Départ :</strong> ${result.depart}</p>
+                <p><strong>🎯 Arrivée :</strong> ${result.arrivee}</p>
+                <p><strong>📏 Distance totale :</strong> ${result.distance_totale} km</p>
+                <p><strong>🔢 Nombre d'étapes :</strong> ${result.nb_etapes}</p>
+            </div>
+            <div class="result-section">
+                <h4>🛣️ Chemin optimal :</h4>
+                <div class="path-display">${result.chemin.split(' -> ').map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
+            </div>
+        `;
+    }
+    
+    else if (result.type && result.type.includes('Bellman-Ford')) {
+        if (result.alerte) {
+            html += `
+                <div class="alert-box">
+                    <p style="font-size: 1.2em; color: var(--accent-2);">${result.alerte}</p>
+                    <p><strong>Cycle détecté :</strong></p>
+                    <div class="path-display">${result.cycle.map(n => `<span class="node-badge cycle">${n}</span>`).join(' → ')}</div>
+                    <p><strong>Poids du cycle :</strong> ${result.poids_cycle}</p>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="result-section">
+                    <p><strong>📍 Départ :</strong> ${result.depart}</p>
+                </div>
+                <div class="result-section">
+                    <h4>📏 Distances depuis ${result.depart} :</h4>
+                    <table class="distance-table">
+                        <thead>
+                            <tr><th>Ville</th><th>Distance</th></tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            for (const [ville, dist] of Object.entries(result.distances)) {
+                html += `<tr><td>${ville}</td><td>${dist}</td></tr>`;
+            }
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            if (result.chemin) {
+                html += `
+                    <div class="result-section">
+                        <h4>🛣️ Chemin vers ${result.arrivee} :</h4>
+                        <div class="path-display">${result.chemin.split(' → ').map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
+                        <p><strong>Distance :</strong> ${result.distance} km</p>
+                    </div>
+                `;
+            }
+        }
+    }
+    
+    else if (result.type && result.type.includes('Floyd-Warshall')) {
+        html += `
+            <div class="result-section">
+                <p><strong>📊 Taille du graphe :</strong> ${result.taille} villes</p>
+                <p><strong>⭐ Nœud le plus central :</strong> ${result.noeud_central}</p>
+                <p><strong>📏 Somme des distances :</strong> ${result.somme_distances_centrale}</p>
+            </div>
+            <div class="result-section">
+                <h4>🗺️ Matrice des distances :</h4>
+                <div style="overflow-x: auto; max-height: 400px;">
+                    <table class="matrix-table">
+                        <tbody>
+        `;
+        
+        result.matrice_distances.forEach(row => {
+            html += '<tr>';
+            row.forEach(val => {
+                html += `<td>${val}</td>`;
+            });
+            html += '</tr>';
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    else if (result.type && (result.type.includes('BFS') || result.type.includes('DFS'))) {
+        html += `
+            <div class="result-section">
+                <p><strong>📍 Départ :</strong> ${result.depart}</p>
+                <p><strong>🔢 Nœuds visités :</strong> ${result.noeuds_visites}</p>
+            </div>
+            <div class="result-section">
+                <h4>🔍 Ordre de visite :</h4>
+                <div class="path-display">${result.ordre_visite.map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
+            </div>
+        `;
+    }
+    
+    else if (result.type && (result.type.includes('Prim') || result.type.includes('Kruskal'))) {
+        html += `
+            <div class="result-section">
+                ${result.depart ? `<p><strong>📍 Départ :</strong> ${result.depart}</p>` : ''}
+                <p><strong>⚖️ Poids total :</strong> ${result.poids_total} km</p>
+                <p><strong>🔢 Nombre d'arêtes :</strong> ${result.nombre_aretes}</p>
+                <p><strong>📍 Nœuds couverts :</strong> ${result.noeuds_couverts}</p>
+            </div>
+            <div class="result-section">
+                <h4>🌳 Arêtes de l'arbre couvrant :</h4>
+                <ul class="edge-list">
+        `;
+        
+        result.aretes.forEach(arete => {
+            html += `<li>${arete}</li>`;
+        });
+        
+        html += `
+                </ul>
+            </div>
+        `;
+    }
+    
+    else if (result.type && result.type.includes('PERT')) {
+        html += `
+            <div class="result-section">
+                <p><strong>⏱️ Durée totale du projet :</strong> ${result.duree_projet} jours</p>
+                <p><strong>⚠️ Tâches critiques :</strong> ${result.nb_taches_critiques} / ${result.nb_taches_totales}</p>
+            </div>
+            <div class="result-section">
+                <h4>🎯 Chemin critique :</h4>
+                <div class="path-display">${result.chemin_critique.split(' → ').map(n => `<span class="node-badge critical">${n}</span>`).join(' → ')}</div>
+            </div>
+            <div class="result-section">
+                <h4>📋 Détails des tâches :</h4>
+                <table class="pert-table">
+                    <thead>
+                        <tr>
+                            <th>Tâche</th>
+                            <th>Nom</th>
+                            <th>Durée</th>
+                            <th>ES</th>
+                            <th>EF</th>
+                            <th>LS</th>
+                            <th>LF</th>
+                            <th>Marge</th>
+                            <th>Critique</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        for (const [tache, info] of Object.entries(result.details)) {
+            const critiqueClass = info.critique === '✓' ? 'critical-row' : '';
+            html += `
+                <tr class="${critiqueClass}">
+                    <td><strong>${tache}</strong></td>
+                    <td>${info.nom}</td>
+                    <td>${info.duree}</td>
+                    <td>${info.ES}</td>
+                    <td>${info.EF}</td>
+                    <td>${info.LS}</td>
+                    <td>${info.LF}</td>
+                    <td>${info.marge}</td>
+                    <td>${info.critique}</td>
+                </tr>
+            `;
+        }
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    // Affichage brut en cas de format inconnu
+    else {
+        html += `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+    }
+    
+    html += `</div>`;
+    return html;
+}
 
         // Init graph
         drawGraph(currentMatrix, currentLabels);

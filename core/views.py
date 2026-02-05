@@ -38,7 +38,7 @@ def calculer(request):
         depart = data.get('depart', '').strip()
         arrivee = data.get('arrivee', '').strip()
         
-        # Récupération données (sauf pour PERT qui a ses propres données par défaut si vide)
+        # Récupération données
         try:
             matrix = parse_matrix(data.get('matrix'))
             raw_labels = data.get('labels', '')
@@ -48,125 +48,185 @@ def calculer(request):
 
         resultat = {}
         path_nodes = []
-        # Nouveaux champs pour forcer la mise à jour du graphe (utile pour PERT)
         new_graph_data = None 
 
-        # --- ALGORITHMES ---
-
+        # ==================== DIJKSTRA ====================
         if algo == 'dijkstra':
+            if not depart or not arrivee:
+                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ et d\'arrivée'})
+            
             res = dijkstra.dijkstra(depart, arrivee, matrix=matrix, labels=labels)
+            
             if isinstance(res, dict):
-                resultat = res
                 path_nodes = res['chemin'].split(' -> ')
+                resultat = {
+                    'type': 'Dijkstra',
+                    'depart': depart,
+                    'arrivee': arrivee,
+                    'chemin': res['chemin'],
+                    'distance_totale': res['distance_totale'],
+                    'nb_etapes': len(path_nodes)
+                }
             else:
-                resultat = {'message': str(res)}
+                return JsonResponse({'status': 'error', 'error': str(res)})
 
+        # ==================== BELLMAN-FORD ====================
         elif algo == 'bellman':
+            if not depart:
+                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ'})
+            
             res = bellmanford.bellman_ford(depart, matrix=matrix, labels=labels)
             
             if "error" in res:
                 return JsonResponse({'status': 'error', 'error': res['error']})
 
             if res['type'] == 'cycle':
-                cycle_names = [labels[i] for i in res['cycle']]
-                path_nodes = cycle_names
-                resultat = {'message': "⚠️ Cycle négatif détecté !", 'cycle': " -> ".join(cycle_names)}
+                path_nodes = res['cycle']
+                resultat = {
+                    'type': 'Bellman-Ford - Cycle Négatif',
+                    'alerte': '⚠️ Cycle négatif détecté !',
+                    'cycle': res['cycle'],
+                    'poids_cycle': res.get('poids_cycle', 'N/A'),
+                    'message': res.get('message', '')
+                }
             else:
-                # Reconstruction du chemin si une arrivée est donnée
-                dists = res['distances']
-                preds = res['predecesseurs']
+                # Affichage des distances depuis le départ
+                resultat = {
+                    'type': 'Bellman-Ford',
+                    'depart': depart,
+                    'distances': res['distances_dict']
+                }
                 
+                # Si arrivée spécifiée, montrer le chemin
                 if arrivee and arrivee in labels:
-                    idx_arr = labels.index(arrivee)
-                    if dists[idx_arr] == float('inf'):
-                        resultat = {'message': "Pas de chemin."}
-                    else:
-                        # On remonte les prédécesseurs
-                        curr = idx_arr
-                        path_indices = []
-                        while curr != -1:
-                            path_indices.insert(0, curr)
-                            curr = preds[curr]
-                        path_nodes = [labels[i] for i in path_indices]
-                        resultat = {
-                            'distance': dists[idx_arr],
-                            'chemin': " -> ".join(path_nodes)
-                        }
-                
-                # On renvoie aussi toutes les distances pour affichage
-                formatted_dists = {labels[i]: (d if d != float('inf') else "∞") for i, d in enumerate(dists)}
-                resultat['toutes_distances'] = formatted_dists
+                    chemin_info = bellmanford.reconstruire_chemin(
+                        depart, arrivee, res['predecesseurs'], labels
+                    )
+                    if chemin_info['existe']:
+                        path_nodes = chemin_info['chemin']
+                        idx_arr = labels.index(arrivee)
+                        resultat['chemin'] = ' → '.join(path_nodes)
+                        resultat['distance'] = res['distances'][idx_arr]
+                        resultat['arrivee'] = arrivee
 
+        # ==================== FLOYD-WARSHALL ====================
         elif algo == 'floyd':
             dist_matrix = Floyd_Warshall.floyd_warshall(matrix=matrix, labels=labels)
             
-            # Calcul de centralité pour colorier un nœud
+            # Calcul du nœud le plus central
             min_sum = float('inf')
             central_node = None
+            central_sum = 0
+            
             for i, row in enumerate(dist_matrix):
                 s = sum(d for d in row if d != float('inf'))
                 if s < min_sum and s > 0:
                     min_sum = s
                     central_node = labels[i]
+                    central_sum = s
             
             if central_node:
-                path_nodes = [central_node] # On colorie juste ce nœud
-                resultat['info'] = f"Nœud le plus central : {central_node}"
-
-            # Matrice lisible
+                path_nodes = [central_node]
+            
+            # Matrice formatée
             readable = [[("∞" if x == float('inf') else x) for x in row] for row in dist_matrix]
-            resultat['matrice'] = readable
+            
+            resultat = {
+                'type': 'Floyd-Warshall',
+                'matrice_distances': readable,
+                'noeud_central': central_node,
+                'somme_distances_centrale': round(central_sum, 2) if central_sum else None,
+                'taille': len(labels)
+            }
 
+        # ==================== BFS ====================
         elif algo == 'bfs':
+            if not depart:
+                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ'})
+            
             res = bfs_dfs.bfs(depart, matrix=matrix, labels=labels)
+            
             if isinstance(res, dict) and "error" in res:
-                resultat = res
-            else:
-                path_nodes = res
-                resultat = {'parcours': ' → '.join(res), 'type': 'BFS'}
+                return JsonResponse({'status': 'error', 'error': res['error']})
+            
+            path_nodes = res
+            resultat = {
+                'type': 'BFS (Parcours en Largeur)',
+                'depart': depart,
+                'ordre_visite': res,
+                'parcours': ' → '.join(res),
+                'noeuds_visites': len(res)
+            }
 
+        # ==================== DFS ====================
         elif algo == 'dfs':
+            if not depart:
+                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ'})
+            
             res = bfs_dfs.dfs(depart, matrix=matrix, labels=labels)
+            
             if isinstance(res, dict) and "error" in res:
-                resultat = res
-            else:
-                path_nodes = res
-                resultat = {'parcours': ' → '.join(res), 'type': 'DFS'}
+                return JsonResponse({'status': 'error', 'error': res['error']})
+            
+            path_nodes = res
+            resultat = {
+                'type': 'DFS (Parcours en Profondeur)',
+                'depart': depart,
+                'ordre_visite': res,
+                'parcours': ' → '.join(res),
+                'noeuds_visites': len(res)
+            }
 
+        # ==================== PRIM ====================
         elif algo == 'prim':
+            if not depart:
+                return JsonResponse({'status': 'error', 'error': 'Veuillez spécifier une ville de départ pour Prim'})
+            
             res = prim_kruskal.prim(depart, matrix=matrix, labels=labels)
+            
             if "error" in res:
-                resultat = res
-            else:
-                # Récupérer les arêtes pour le graphe
-                edges = res['edges']
-                path_nodes = []
-                for edge in edges:
-                    path_nodes.extend(edge)  # Ajouter les deux extrémités
-                resultat = {
-                    'aretes': [f"{u} -- {v}" for u, v in edges],
-                    'poids_total': res['weight'],
-                    'nombre_aretes': len(edges)
-                }
+                return JsonResponse({'status': 'error', 'error': res['error']})
+            
+            # Extraire tous les nœuds impliqués
+            nodes_set = set()
+            for u, v in res['edges']:
+                nodes_set.add(u)
+                nodes_set.add(v)
+            path_nodes = list(nodes_set)
+            
+            resultat = {
+                'type': 'Prim (Arbre Couvrant Minimal)',
+                'depart': depart,
+                'aretes': [f"{u} ↔ {v}" for u, v in res['edges']],
+                'poids_total': res['weight'],
+                'nombre_aretes': len(res['edges']),
+                'noeuds_couverts': len(nodes_set)
+            }
 
+        # ==================== KRUSKAL ====================
         elif algo == 'kruskal':
             res = prim_kruskal.kruskal(matrix=matrix, labels=labels)
+            
             if "error" in res:
-                resultat = res
-            else:
-                # Récupérer les arêtes pour le graphe
-                edges = res['edges']
-                path_nodes = []
-                for edge in edges:
-                    path_nodes.extend(edge)  # Ajouter les deux extrémités
-                resultat = {
-                    'aretes': [f"{u} -- {v}" for u, v in edges],
-                    'poids_total': res['weight'],
-                    'nombre_aretes': len(edges)
-                }
+                return JsonResponse({'status': 'error', 'error': res['error']})
+            
+            # Extraire tous les nœuds impliqués
+            nodes_set = set()
+            for u, v in res['edges']:
+                nodes_set.add(u)
+                nodes_set.add(v)
+            path_nodes = list(nodes_set)
+            
+            resultat = {
+                'type': 'Kruskal (Arbre Couvrant Minimal)',
+                'aretes': [f"{u} ↔ {v}" for u, v in res['edges']],
+                'poids_total': res['weight'],
+                'nombre_aretes': len(res['edges']),
+                'noeuds_couverts': len(nodes_set)
+            }
 
+        # ==================== PERT ====================
         elif algo == 'pert':
-            # 1. Récupération des données
             custom_tasks_str = data.get('pert_data')
             taches_projet = None
             
@@ -176,29 +236,45 @@ def calculer(request):
                 except json.JSONDecodeError:
                     return JsonResponse({'status': 'error', 'error': 'Format JSON des tâches invalide'})
             
-            # 2. Calcul via la méthode PERT
-            # On récupère le résultat complet (dictionnaire)
-            res_pert = MethodePert.calcul_pert(taches_projet)
+            # Calcul PERT
+            res_pert = MethodePert.calcul_pert(taches_projet, verbose=False)
             
-            # Gestion d'erreur renvoyée par MethodePert (ex: cycle détecté)
             if 'erreur' in res_pert:
                 return JsonResponse({'status': 'error', 'error': res_pert['erreur']})
-
-            # CORRECTION ICI : On extrait la liste du chemin critique pour le surlignage
+            
             path_nodes = res_pert['chemin_critique']
             
-            # On passe tout le résultat au frontend pour l'onglet "Résultats détaillés"
-            resultat = res_pert
+            # Formatage des détails pour affichage
+            details_formatted = {}
+            for tache, info in res_pert['details'].items():
+                details_formatted[tache] = {
+                    'duree': info['duree'],
+                    'ES': info['ES'],
+                    'EF': info['EF'],
+                    'LS': info['LS'],
+                    'LF': info['LF'],
+                    'marge': info['marge_totale'],
+                    'critique': '✓' if info['critique'] else '✗',
+                    'nom': info.get('nom', tache)
+                }
             
-            # 3. Construction du graphe PERT pour l'affichage (Matrice d'adjacence visuelle)
+            resultat = {
+                'type': 'PERT (Ordonnancement)',
+                'chemin_critique': ' → '.join(res_pert['chemin_critique']),
+                'duree_projet': res_pert['duree_projet'],
+                'nb_taches_critiques': res_pert['taches_critiques_count'],
+                'nb_taches_totales': res_pert['taches_totales'],
+                'details': details_formatted
+            }
+            
+            # Construction du graphe PERT pour visualisation
             if taches_projet:
                 taches = taches_projet
             else:
                 taches = MethodePert.default_taches
-                
+            
             pert_labels = list(taches.keys())
             n_p = len(pert_labels)
-            # Initialisation matrice vide
             pert_matrix = [[0]*n_p for _ in range(n_p)]
             
             for t_idx, t_name in enumerate(pert_labels):
@@ -206,9 +282,6 @@ def calculer(request):
                     for pred in taches[t_name]['predecesseurs']:
                         if pred in pert_labels:
                             p_idx = pert_labels.index(pred)
-                            # On met la durée du prédécesseur comme poids de l'arc (pour info visuelle)
-                            # Ou on met simplement 1 pour marquer le lien. 
-                            # Ici on garde la durée du noeud source (convention visuelle)
                             pert_matrix[p_idx][t_idx] = taches[pred]['duree']
             
             new_graph_data = {
@@ -220,8 +293,12 @@ def calculer(request):
             'status': 'success',
             'result': resultat,
             'path': path_nodes,
-            'new_graph': new_graph_data # Champ spécial pour PERT
+            'new_graph': new_graph_data
         })
 
     except Exception as e:
-        return JsonResponse({'status': 'error', 'error': str(e), 'trace': traceback.format_exc()})
+        return JsonResponse({
+            'status': 'error', 
+            'error': str(e), 
+            'trace': traceback.format_exc()
+        })
