@@ -2,139 +2,327 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Projet Graphe - Interface de Pilotage</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse de Graphes - Interface Interactive</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            margin: 0; 
+            overflow: hidden;
+            background: #f5f5f5;
+        }
         
         /* Barre latérale de commande */
         #sidebar { 
-            width: 350px; 
-            padding: 20px; 
-            background: #f8f9fa; 
+            width: 400px; 
+            padding: 25px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border-right: 1px solid #ddd; 
             display: flex; 
             flex-direction: column;
             overflow-y: auto;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.2);
         }
 
         /* Zone de dessin du graphe */
         #graph-container { 
             flex-grow: 1; 
             background: #ffffff; 
-            cursor: move;
+            position: relative;
         }
 
-        h2 { color: #333; margin-top: 0; }
+        h2 { 
+            color: white; 
+            margin-top: 0;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
         
-        .control-group { margin-bottom: 15px; }
-        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; color: #555; }
+        .control-group { margin-bottom: 18px; }
+        label { 
+            display: block; 
+            font-weight: 600; 
+            margin-bottom: 6px; 
+            font-size: 0.95em; 
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
         
         input[type="text"], select, textarea {
             width: 100%; 
-            padding: 8px; 
+            padding: 10px 12px; 
             box-sizing: border-box; 
-            border: 1px solid #ccc; 
-            border-radius: 4px;
+            border: 2px solid rgba(255,255,255,0.3); 
+            border-radius: 6px;
+            background: rgba(255,255,255,0.9);
+            font-size: 0.95em;
+            transition: all 0.3s;
         }
         
-        textarea { height: 120px; font-family: monospace; font-size: 11px; }
+        input[type="text"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #fff;
+            background: white;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+        
+        textarea { 
+            height: 140px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px;
+            resize: vertical;
+        }
 
         button {
             width: 100%;
-            padding: 12px;
-            background-color: #007bff;
+            padding: 14px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
             border: none;
-            border-radius: 4px;
-            font-size: 1em;
+            border-radius: 6px;
+            font-size: 1.05em;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin-top: 10px;
         }
-        button:hover { background-color: #0056b3; }
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
 
         #resultat {
             margin-top: 20px;
             padding: 15px;
-            background: #e9ecef;
-            border-radius: 5px;
-            border-left: 5px solid #007bff;
+            background: rgba(255,255,255,0.95);
+            border-radius: 8px;
+            border-left: 5px solid #f5576c;
             word-wrap: break-word;
+            color: #333;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        #resultat pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            color: #333;
+            margin: 10px 0;
         }
         
         .row { display: flex; gap: 10px; }
+        
+        .hint {
+            font-size: 0.8em; 
+            color: rgba(255,255,255,0.85); 
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        .algo-info {
+            background: rgba(255,255,255,0.15);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 18px;
+            font-size: 0.88em;
+            border-left: 3px solid rgba(255,255,255,0.6);
+            line-height: 1.5;
+        }
+        
+        /* Loader animation */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        
+        .success { color: #28a745; font-weight: 600; }
+        .error { color: #dc3545; font-weight: 600; }
+        
+        .graph-legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            font-size: 0.9em;
+        }
+        
+        .graph-legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 1em;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #333;
+        }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h2>🚀 Pilotage Graphe</h2>
+    <h2>📊 Analyse de Graphes</h2>
+
+    <div class="algo-info" id="algo-description">
+        <strong>Dijkstra :</strong> Calcule le plus court chemin entre deux nœuds dans un graphe à poids positifs.
+    </div>
 
     <div class="control-group">
-        <label>Algorithme</label>
-        <select id="algo-select">
+        <label>⚙️ Algorithme</label>
+        <select id="algo-select" onchange="updateAlgoInfo()">
             <option value="dijkstra">Dijkstra (Plus court chemin)</option>
-            <option value="bellman">Bellman-Ford (Détection cycles)</option>
-            </select>
+            <option value="bellman">Bellman-Ford (Cycles négatifs)</option>
+            <option value="floyd">Floyd-Warshall (Toutes les distances)</option>
+            <option value="pert">PERT (Chemin critique)</option>
+        </select>
     </div>
 
     <div class="control-group">
-        <label>Matrice (Liste de listes Python)</label>
-        <textarea id="matrix-input"></textarea>
-        <div style="font-size: 0.8em; color: #777; margin-top: 3px;">
-            Utilisez 'inf' pour l'infini. 0 pour distance nulle (soi-même).
+        <label>📐 Matrice d'adjacence (format Python)</label>
+        <textarea id="matrix-input" placeholder="[[0, 5, inf], [5, 0, 3], [inf, 3, 0]]"></textarea>
+        <div class="hint">
+            Utilisez 'inf' pour l'infini. La diagonale doit être à 0.
         </div>
     </div>
 
     <div class="control-group">
-        <label>Villes (séparées par virgules)</label>
-        <input type="text" id="labels-input">
-    </div>
-
-    <div class="row">
-        <div class="control-group" style="flex:1">
-            <label>Départ</label>
-            <input type="text" id="start-node" placeholder="Ex: Rennes">
-        </div>
-        <div class="control-group" style="flex:1">
-            <label>Arrivée</label>
-            <input type="text" id="end-node" placeholder="Ex: Lyon">
+        <label>🏷️ Noms des nœuds (séparés par virgules)</label>
+        <input type="text" id="labels-input" placeholder="A, B, C, D, E">
+        <div class="hint">
+            Exemples : Villes, Serveurs, Tâches, Étapes...
         </div>
     </div>
 
-    <button onclick="lancerCalcul()">Lancer le calcul</button>
+    <div class="row" id="node-selection">
+        <div class="control-group" style="flex:1">
+            <label>📍 Nœud de départ</label>
+            <input type="text" id="start-node" placeholder="Ex: A">
+        </div>
+        <div class="control-group" style="flex:1">
+            <label>🎯 Nœud d'arrivée</label>
+            <input type="text" id="end-node" placeholder="Ex: E">
+        </div>
+    </div>
+
+    <button onclick="lancerCalcul()" id="calc-button">
+        <span id="button-text">🚀 Lancer le calcul</span>
+    </button>
 
     <div id="resultat" style="display:none;"></div>
 </div>
 
-<div id="graph-container"></div>
+<div id="graph-container">
+    <div class="graph-legend" id="graph-legend" style="display:none;">
+        <h4>Légende</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #D2E5FF; border-color: #2B7CE9;"></div>
+            <span>Nœud standard</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #FFD700; border-color: #FF8C00;"></div>
+            <span>Chemin optimal</span>
+        </div>
+        <div class="legend-item">
+            <div style="width: 20px; height: 3px; background: red; margin-right: 10px;"></div>
+            <span>Arête du chemin</span>
+        </div>
+    </div>
+</div>
 
 <script>
     // --- 1. INITIALISATION ---
-    // Récupération des données envoyées par Django (views.py)
     let matrix = {{ default_matrix|safe }};
     let labels = {{ default_villes|safe }};
     let network = null;
 
     // Remplissage des champs initiaux
-    document.getElementById('matrix-input').value = JSON.stringify(matrix).replace(/null/g, 'inf'); // Affiche 'inf' au lieu de null pour l'utilisateur
+    document.getElementById('matrix-input').value = JSON.stringify(matrix).replace(/null/g, 'inf');
     document.getElementById('labels-input').value = labels.join(', ');
 
-    // --- 2. FONCTION DE DESSIN (Vis.js) ---
+    // --- 2. UPDATE ALGO INFO ---
+    function updateAlgoInfo() {
+        const algo = document.getElementById('algo-select').value;
+        const infoDiv = document.getElementById('algo-description');
+        const nodeSelection = document.getElementById('node-selection');
+        
+        const descriptions = {
+            'dijkstra': '<strong>Dijkstra :</strong> Calcule le plus court chemin entre deux nœuds dans un graphe à poids positifs. Utilise une file de priorité pour une efficacité optimale.',
+            'bellman': '<strong>Bellman-Ford :</strong> Calcule les plus courts chemins et détecte les cycles négatifs. Fonctionne avec des poids négatifs.',
+            'floyd': '<strong>Floyd-Warshall :</strong> Calcule toutes les distances entre toutes les paires de nœuds. Idéal pour analyser la connectivité globale du graphe.',
+            'pert': '<strong>PERT :</strong> Méthode d\'ordonnancement de projet. Identifie le chemin critique et les marges de chaque tâche.'
+        };
+        
+        infoDiv.innerHTML = descriptions[algo];
+        
+        // Afficher/masquer la sélection de nœuds selon l'algorithme
+        if (algo === 'floyd' || algo === 'pert') {
+            nodeSelection.style.display = 'none';
+        } else {
+            nodeSelection.style.display = 'flex';
+        }
+    }
+
+    // --- 3. FONCTION DE DESSIN (Vis.js) ---
     function drawGraph(matrixData, labelsData, highlightPath = []) {
         let nodes = [];
         let edges = [];
 
-        // Création des noeuds (Villes)
+        // Création des nœuds
         labelsData.forEach((label, index) => {
             let color = { background: '#D2E5FF', border: '#2B7CE9' };
-            let borderWidth = 1;
+            let borderWidth = 2;
+            let size = 25;
 
-            // Si la ville est dans le chemin résultat, on la colorie
+            // Mise en surbrillance des nœuds du chemin
             if (highlightPath.includes(label)) {
-                color = { background: '#FFD700', border: '#FF8C00' }; // Jaune/Orange
-                borderWidth = 3;
+                color = { background: '#FFD700', border: '#FF8C00' };
+                borderWidth = 4;
+                size = 30;
             }
 
             nodes.push({
@@ -142,92 +330,137 @@
                 label: label, 
                 color: color, 
                 borderWidth: borderWidth,
-                font: { size: 16 }
+                font: { size: 16, bold: true },
+                size: size,
+                shape: 'circle'
             });
         });
 
-        // Création des arêtes (Routes)
+        // Création des arêtes
         for (let i = 0; i < matrixData.length; i++) {
             for (let j = 0; j < matrixData.length; j++) {
                 let weight = matrixData[i][j];
                 
-                // On affiche l'arête si poids > 0 et pas infini
-                // Note : En JS venant du JSON, l'infini peut être 'inf' (string) ou null selon le parser
-                if (weight > 0 && weight !== "inf" && weight !== null && weight !== Infinity) {
+                // Vérification robuste de la validité du poids
+                if (weight && weight > 0 && weight !== "inf" && weight !== null && weight !== Infinity && !isNaN(weight)) {
                     
-                    let edgeColor = '#848484';
-                    let width = 1;
+                    let edgeColor = { color: '#848484', highlight: '#2B7CE9' };
+                    let width = 2;
+                    let dashes = false;
 
-                    // Logique de surbrillance du chemin (simplifiée)
-                    // On vérifie si les deux villes sont dans le chemin ET adjacentes dans la liste du chemin
+                    // Mise en surbrillance du chemin
                     let labelU = labelsData[i];
                     let labelV = labelsData[j];
                     let idxInPathU = highlightPath.indexOf(labelU);
                     let idxInPathV = highlightPath.indexOf(labelV);
 
-                    if (idxInPathU !== -1 && idxInPathV !== -1) {
-                        // Vérifie s'ils se suivent directement (ex: A->B)
-                        if (Math.abs(idxInPathU - idxInPathV) === 1) {
-                            edgeColor = 'red';
-                            width = 3;
-                        }
+                    if (idxInPathU !== -1 && idxInPathV !== -1 && Math.abs(idxInPathU - idxInPathV) === 1) {
+                        edgeColor = { color: '#FF4444', highlight: '#FF0000' };
+                        width = 4;
                     }
 
                     edges.push({
                         from: i, 
                         to: j, 
                         label: String(weight), 
-                        arrows: 'to', 
+                        arrows: { to: { enabled: true, scaleFactor: 1 } },
                         color: edgeColor,
-                        width: width
+                        width: width,
+                        font: { align: 'middle', size: 12, background: 'white', strokeWidth: 0 },
+                        smooth: { type: 'curvedCW', roundness: 0.2 },
+                        dashes: dashes
                     });
                 }
             }
         }
 
         let container = document.getElementById('graph-container');
-        let data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+        let data = { 
+            nodes: new vis.DataSet(nodes), 
+            edges: new vis.DataSet(edges) 
+        };
+        
         let options = {
             physics: {
                 enabled: true,
-                solver: 'forceAtlas2Based', // Bon algo pour écarter les noeuds
-                stabilization: { iterations: 100 }
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: {
+                    gravitationalConstant: -50,
+                    centralGravity: 0.01,
+                    springLength: 200,
+                    springConstant: 0.08
+                },
+                stabilization: { 
+                    iterations: 150,
+                    updateInterval: 25
+                }
             },
             edges: {
                 font: { align: 'top', size: 12 },
                 smooth: { type: 'dynamic' }
             },
-            interaction: { hover: true }
+            interaction: { 
+                hover: true,
+                tooltipDelay: 200,
+                navigationButtons: true,
+                keyboard: true
+            },
+            nodes: {
+                borderWidth: 2
+            }
         };
+        
+        // Destroy previous network if exists
+        if (network !== null) {
+            network.destroy();
+        }
+        
         network = new vis.Network(container, data, options);
+        
+        // Afficher la légende si un chemin est surligné
+        const legend = document.getElementById('graph-legend');
+        if (highlightPath.length > 0) {
+            legend.style.display = 'block';
+        } else {
+            legend.style.display = 'none';
+        }
     }
 
-    // Premier dessin au chargement de la page
+    // Premier dessin au chargement
     drawGraph(matrix, labels);
 
-
-    // --- 3. LOGIQUE D'APPEL AU SERVEUR (Django) ---
+    // --- 4. LOGIQUE D'APPEL AU SERVEUR (Django) ---
     async function lancerCalcul() {
-        const btn = document.querySelector('button');
-        btn.textContent = "Calcul en cours...";
+        const btn = document.getElementById('calc-button');
+        const btnText = document.getElementById('button-text');
+        const originalText = btnText.innerHTML;
+        
+        btn.disabled = true;
+        btnText.innerHTML = 'Calcul en cours <span class="spinner"></span>';
         
         try {
-            // Récupération des valeurs du formulaire
+            // Récupération des valeurs
             const algo = document.getElementById('algo-select').value;
-            let matrixStr = document.getElementById('matrix-input').value;
-            const labelsStr = document.getElementById('labels-input').value;
-            const depart = document.getElementById('start-node').value;
-            const arrivee = document.getElementById('end-node').value;
+            let matrixStr = document.getElementById('matrix-input').value.trim();
+            const labelsStr = document.getElementById('labels-input').value.trim();
+            const depart = document.getElementById('start-node').value.trim();
+            const arrivee = document.getElementById('end-node').value.trim();
 
-            // Petit nettoyage côté client pour remettre 'inf' en format compréhensible si besoin
-            // (Mais le backend gère aussi)
+            // Validation basique
+            if (!matrixStr || !labelsStr) {
+                throw new Error('Veuillez remplir la matrice et les noms des nœuds');
+            }
 
-            // Appel AJAX vers ton API Django
+            if ((algo === 'dijkstra' || algo === 'bellman') && (!depart || !arrivee)) {
+                throw new Error('Veuillez spécifier les nœuds de départ et d\'arrivée');
+            }
+
+            // Appel AJAX vers l'API Django
             const response = await fetch('/api/calculer/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken') // Sécurité Django obligatoire
+                    'X-CSRFToken': getCookie('csrftoken')
                 },
                 body: JSON.stringify({
                     algo: algo,
@@ -243,31 +476,40 @@
             resDiv.style.display = 'block';
 
             if (data.status === 'success') {
-                // Affichage propre du JSON résultat
-                resDiv.innerHTML = `<strong>✅ Résultat :</strong><br><pre>${JSON.stringify(data.result, null, 2)}</pre>`;
+                // Affichage formaté du résultat
+                let resultHTML = '<div class="success">✅ Résultat :</div>';
                 
-                // --- Mise à jour du graphique ---
-                // On recrée les objets JS à partir des inputs (pour que le graphe reflète ce qui est écrit, même si modifié)
-                // Remplacement astucieux : 'inf' devient 'null' pour que JSON.parse ne plante pas
-                let cleanMatrixStr = matrixStr.replace(/'/g, '"').replace(/\binf\b/g, 'null'); 
+                if (typeof data.result === 'object') {
+                    resultHTML += '<pre>' + JSON.stringify(data.result, null, 2) + '</pre>';
+                } else {
+                    resultHTML += '<p>' + data.result + '</p>';
+                }
+                
+                resDiv.innerHTML = resultHTML;
+                
+                // Mise à jour du graphique
+                let cleanMatrixStr = matrixStr.replace(/'/g, '"').replace(/\binf\b/gi, 'null');
                 let currentMatrix = JSON.parse(cleanMatrixStr);
                 let currentLabels = labelsStr.split(',').map(s => s.trim());
 
-                drawGraph(currentMatrix, currentLabels, data.path);
+                drawGraph(currentMatrix, currentLabels, data.path || []);
 
             } else {
-                resDiv.innerHTML = `<strong>❌ Erreur :</strong> ${data.error || data.result.message}`;
+                resDiv.innerHTML = `<div class="error">❌ Erreur :</div><p>${data.error || data.result || 'Erreur inconnue'}</p>`;
             }
 
         } catch (err) {
-            console.error(err);
-            alert("Une erreur technique est survenue. Vérifiez la console.");
+            console.error('Erreur:', err);
+            const resDiv = document.getElementById('resultat');
+            resDiv.style.display = 'block';
+            resDiv.innerHTML = `<div class="error">❌ Erreur :</div><p>${err.message}</p>`;
         } finally {
-            btn.textContent = "Lancer le calcul";
+            btn.disabled = false;
+            btnText.innerHTML = originalText;
         }
     }
 
-    // Fonction utilitaire pour récupérer le cookie CSRF (Sécurité Django)
+    // Fonction utilitaire CSRF
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -282,6 +524,9 @@
         }
         return cookieValue;
     }
+    
+    // Initialiser l'affichage de l'algorithme
+    updateAlgoInfo();
 </script>
 
 </body>

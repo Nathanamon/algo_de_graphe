@@ -4,13 +4,12 @@ import json
 import ast
 import numpy as np
 
-# Importation de tes algorithmes situés dans le même dossier
+# Importation des algorithmes
 from . import dijkstra, bellmanford, Floyd_Warshall, Matrice, MethodePert
 
 def index(request):
     """Affiche la page principale avec la matrice par défaut."""
-    # On prépare les données par défaut pour le JS
-    # .tolist() est nécessaire car JSON ne comprend pas les tableaux numpy
+    # Préparation des données par défaut pour le JS
     context = {
         'default_matrix': json.dumps(Matrice.M.tolist()),
         'default_villes': json.dumps(Matrice.villes)
@@ -18,66 +17,174 @@ def index(request):
     return render(request, 'index.html', context)
 
 def calculer(request):
-    """API qui reçoit les données du graphe et renvoie le résultat de l'algo."""
+    """API qui reçoit les données du graphe et renvoie le résultat de l'algorithme."""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             
             algo = data.get('algo')
-            depart = data.get('depart')
-            arrivee = data.get('arrivee')
+            depart = data.get('depart', '').strip()
+            arrivee = data.get('arrivee', '').strip()
             
             # Récupération et nettoyage des données brutes
-            raw_matrix = data.get('matrix')
-            raw_labels = data.get('labels')
+            raw_matrix = data.get('matrix', '')
+            raw_labels = data.get('labels', '')
+
+            if not raw_matrix or not raw_labels:
+                return JsonResponse({
+                    'status': 'error',
+                    'error': 'Matrice et labels requis'
+                }, status=400)
 
             # Conversion string -> structure Python
-            # ast.literal_eval est plus sûr que eval()
-            matrix = ast.literal_eval(raw_matrix)
-            labels = raw_labels.split(',')
-            labels = [l.strip() for l in labels] # Enlever les espaces inutiles
+            # Nettoyage pour gérer 'inf' correctement
+            clean_matrix = raw_matrix.replace('inf', 'float("inf")').replace('Infinity', 'float("inf")')
+            
+            try:
+                matrix = ast.literal_eval(clean_matrix)
+            except (ValueError, SyntaxError) as e:
+                return JsonResponse({
+                    'status': 'error',
+                    'error': f'Format de matrice invalide: {str(e)}'
+                }, status=400)
+            
+            # Traitement des labels
+            labels = [l.strip() for l in raw_labels.split(',') if l.strip()]
+            
+            if not labels:
+                return JsonResponse({
+                    'status': 'error',
+                    'error': 'Veuillez fournir au moins un label'
+                }, status=400)
+
+            # Validation: taille de la matrice doit correspondre au nombre de labels
+            if len(matrix) != len(labels) or any(len(row) != len(labels) for row in matrix):
+                return JsonResponse({
+                    'status': 'error',
+                    'error': f'La matrice doit être carrée {len(labels)}x{len(labels)}'
+                }, status=400)
 
             resultat = {}
-            path_nodes = [] # Liste des villes à colorier en rouge
+            path_nodes = []
 
             # --- AIGUILLAGE DES ALGORITHMES ---
             
             if algo == 'dijkstra':
-                # Appel de ta fonction modifiée
+                if not depart or not arrivee:
+                    return JsonResponse({
+                        'status': 'error',
+                        'error': 'Nœuds de départ et d\'arrivée requis pour Dijkstra'
+                    }, status=400)
+                
+                if depart not in labels or arrivee not in labels:
+                    return JsonResponse({
+                        'status': 'error',
+                        'error': f'Nœuds invalides. Nœuds disponibles: {", ".join(labels)}'
+                    }, status=400)
+                
                 res = dijkstra.dijkstra(depart, arrivee, matrix=matrix, labels=labels)
                 
                 if isinstance(res, dict):
                     resultat = res
-                    # Si le chemin est "A -> B -> C", on veut ['A', 'B', 'C']
                     path_nodes = res['chemin'].split(' -> ')
                 else:
-                    resultat = {'message': res} # Cas d'erreur (ex: pas de chemin)
+                    resultat = {'message': str(res)}
 
             elif algo == 'bellman':
+                if not depart:
+                    return JsonResponse({
+                        'status': 'error',
+                        'error': 'Nœud de départ requis pour Bellman-Ford'
+                    }, status=400)
+                
+                if depart not in labels:
+                    return JsonResponse({
+                        'status': 'error',
+                        'error': f'Nœud de départ invalide. Nœuds disponibles: {", ".join(labels)}'
+                    }, status=400)
+                
                 res = bellmanford.bellman_ford(depart, matrix=matrix, labels=labels)
                 
-                # Si c'est un cycle (liste de villes)
-                if isinstance(res, list) and isinstance(res[0], str): # Adaptation selon ton retour bellman
-                     path_nodes = res
-                     resultat = {'message': "Cycle négatif détecté !", 'cycle': " -> ".join(res)}
+                # Si c'est une liste d'indices (cycle détecté)
+                if isinstance(res, list) and len(res) > 0 and isinstance(res[0], int):
+                    cycle_names = [labels[i] for i in res]
+                    path_nodes = cycle_names
+                    resultat = {
+                        'message': "⚠️ Cycle négatif détecté !",
+                        'cycle': " → ".join(cycle_names) + " → " + cycle_names[0],
+                        'type': 'cycle_negatif'
+                    }
                 
-                # Si c'est une liste de distances (cas normal sans cycle)
-                elif isinstance(res, list):
-                    try:
+                # Si c'est une liste de distances
+                elif isinstance(res, list) and len(res) > 0:
+                    distances_dict = {}
+                    for i, dist in enumerate(res):
+                        if dist != float('inf'):
+                            distances_dict[labels[i]] = dist
+                    
+                    resultat = {
+                        'depart': depart,
+                        'distances': distances_dict,
+                        'message': f"Distances minimales depuis {depart}"
+                    }
+                    
+                    # Si arrivée est spécifiée, mettre en évidence le chemin
+                    if arrivee and arrivee in labels:
                         idx_arr = labels.index(arrivee)
-                        dist = res[idx_arr]
-                        resultat = {
-                            'distance_totale': dist, 
-                            'message': f"Distance min de {depart} à {arrivee}"
-                        }
-                        # Note: Bellman-Ford classique ne reconstruit pas le chemin facilement sans modif,
-                        # donc on ne colorie rien ou juste départ/arrivée pour l'instant.
-                    except ValueError:
-                         resultat = {'error': "Ville d'arrivée inconnue"}
+                        resultat['distance_vers_arrivee'] = res[idx_arr]
                 else:
-                    resultat = {'message': res}
+                    resultat = {'message': str(res)}
 
-            # Tu pourras ajouter ici les blocs pour Floyd-Warshall, PERT, etc.
+            elif algo == 'floyd':
+                dist_matrix = Floyd_Warshall.floyd_warshall(matrix=matrix, labels=labels)
+                
+                # Conversion en format lisible
+                readable_matrix = []
+                for i in range(len(labels)):
+                    row = []
+                    for j in range(len(labels)):
+                        val = dist_matrix[i][j]
+                        if val == float('inf'):
+                            row.append('∞')
+                        else:
+                            row.append(round(val, 2))
+                    readable_matrix.append(row)
+                
+                # Trouver le nœud le plus central (somme des distances minimale)
+                centralite = []
+                for i in range(len(labels)):
+                    somme = sum(d for d in dist_matrix[i] if d != float('inf'))
+                    centralite.append((labels[i], somme))
+                
+                centralite.sort(key=lambda x: x[1])
+                noeud_central = centralite[0][0] if centralite else None
+                
+                resultat = {
+                    'matrice_distances': readable_matrix,
+                    'labels': labels,
+                    'noeud_plus_central': noeud_central,
+                    'centralite_score': round(centralite[0][1], 2) if centralite else None,
+                    'message': f"Toutes les distances calculées. Nœud le plus central: {noeud_central}"
+                }
+
+            elif algo == 'pert':
+                # Pour PERT, on utilise les données par défaut ou on pourrait parser un format spécial
+                # Ici on utilise le projet par défaut
+                chemin_critique = MethodePert.calcul_pert()
+                
+                resultat = {
+                    'chemin_critique': chemin_critique,
+                    'message': f"Chemin critique: {' → '.join(chemin_critique)}",
+                    'note': 'Utilisation du projet par défaut (construction maison). Consultez la console pour les détails.'
+                }
+                
+                path_nodes = chemin_critique
+            
+            else:
+                return JsonResponse({
+                    'status': 'error',
+                    'error': f'Algorithme inconnu: {algo}'
+                }, status=400)
 
             return JsonResponse({
                 'status': 'success',
@@ -85,7 +192,20 @@ def calculer(request):
                 'path': path_nodes
             })
 
+        except json.JSONDecodeError as e:
+            return JsonResponse({
+                'status': 'error',
+                'error': f'JSON invalide: {str(e)}'
+            }, status=400)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            import traceback
+            return JsonResponse({
+                'status': 'error',
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=500)
 
-    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    return JsonResponse({
+        'status': 'error',
+        'error': 'Méthode non autorisée. Utilisez POST.'
+    }, status=405)
