@@ -709,13 +709,13 @@ if (isHighlightedEdge) {
     
     html += `<h3>✅ ${result.type || 'Résultat'}</h3>`;
     
+    // --- DIJKSTRA ---
     if (result.type && result.type.includes('Dijkstra')) {
         html += `
             <div class="result-section">
                 <p><strong>📍 Départ :</strong> ${result.depart}</p>
                 <p><strong>🎯 Arrivée :</strong> ${result.arrivee}</p>
                 <p><strong>📏 Distance totale :</strong> ${result.distance_totale} km</p>
-                <p><strong>🔢 Nombre d'étapes :</strong> ${result.nb_etapes}</p>
             </div>
             <div class="result-section">
                 <h4>🛣️ Chemin optimal :</h4>
@@ -724,14 +724,13 @@ if (isHighlightedEdge) {
         `;
     }
     
+    // --- BELLMAN-FORD (Corrigé) ---
     else if (result.type && result.type.includes('Bellman-Ford')) {
         if (result.alerte) {
             html += `
                 <div class="alert-box">
                     <p style="font-size: 1.2em; color: var(--accent-2);">${result.alerte}</p>
-                    <p><strong>Cycle détecté :</strong></p>
-                    <div class="path-display">${result.cycle.map(n => `<span class="node-badge cycle">${n}</span>`).join(' → ')}</div>
-                    <p><strong>Poids du cycle :</strong> ${result.poids_cycle}</p>
+                    <p><strong>Cycle :</strong> ${result.cycle.map(n => `<span class="node-badge cycle">${n}</span>`).join(' → ')}</p>
                 </div>
             `;
         } else {
@@ -741,164 +740,93 @@ if (isHighlightedEdge) {
                 </div>
                 <div class="result-section">
                     <h4>📏 Distances depuis ${result.depart} :</h4>
-                    <table class="distance-table">
-                        <thead>
-                            <tr><th>Ville</th><th>Distance</th></tr>
-                        </thead>
-                        <tbody>
+                    <table class="distance-table"><thead><tr><th>Ville</th><th>Distance</th></tr></thead><tbody>
             `;
-            
             for (const [ville, dist] of Object.entries(result.distances)) {
                 html += `<tr><td>${ville}</td><td>${dist}</td></tr>`;
             }
+            html += `</tbody></table></div>`;
             
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-            
-            if (result.chemin) {
+            // CORRECTION ICI : Utilisation de 'chemin_texte' et 'dist_arrivee'
+            if (result.chemin_texte) {
                 html += `
                     <div class="result-section">
-                        <h4>🛣️ Chemin vers ${result.arrivee} :</h4>
-                        <div class="path-display">${result.chemin.split(' → ').map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
-                        <p><strong>Distance :</strong> ${result.distance} km</p>
+                        <h4>🛣️ Chemin optimal :</h4>
+                        <div class="path-display">${result.chemin_texte.split(' → ').map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
+                        <p><strong>Distance :</strong> ${result.dist_arrivee} km</p>
                     </div>
                 `;
             }
         }
     }
     
-    else if (result.type && result.type.includes('Floyd-Warshall')) {
+    // --- FLOYD ---
+    else if (result.type && result.type.includes('Floyd')) {
         html += `
             <div class="result-section">
-                <p><strong>📊 Taille du graphe :</strong> ${result.taille} villes</p>
-                <p><strong>⭐ Nœud le plus central :</strong> ${result.noeud_central}</p>
-                <p><strong>📏 Somme des distances :</strong> ${result.somme_distances_centrale}</p>
+                <p><strong>⭐ Central :</strong> ${result.noeud_central || 'Aucun'}</p>
             </div>
             <div class="result-section">
-                <h4>🗺️ Matrice des distances :</h4>
-                <div style="overflow-x: auto; max-height: 400px;">
-                    <table class="matrix-table">
-                        <tbody>
+                <h4>🗺️ Matrice :</h4>
+                <div style="overflow-x:auto;"><table class="matrix-table"><tbody>
         `;
-        
         result.matrice_distances.forEach(row => {
-            html += '<tr>';
-            row.forEach(val => {
-                html += `<td>${val}</td>`;
-            });
-            html += '</tr>';
+            html += '<tr>' + row.map(v => `<td>${v}</td>`).join('') + '</tr>';
         });
-        
-        html += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
+        html += `</tbody></table></div></div>`;
     }
     
-    else if (result.type && (result.type.includes('BFS') || result.type.includes('DFS'))) {
+    // --- BFS / DFS ---
+    else if (result.type && (result.type === 'BFS' || result.type === 'DFS')) {
         html += `
             <div class="result-section">
-                <p><strong>📍 Départ :</strong> ${result.depart}</p>
-                <p><strong>🔢 Nœuds visités :</strong> ${result.noeuds_visites}</p>
+                <p><strong>Nœuds visités :</strong> ${result.ordre_visite.length}</p>
             </div>
             <div class="result-section">
-                <h4>🔍 Ordre de visite :</h4>
+                <h4>🔍 Ordre :</h4>
                 <div class="path-display">${result.ordre_visite.map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
             </div>
             <div class="result-section">
-                <h4>🌳 Arêtes de l'arbre de découverte :</h4>
-                <ul class="edge-list">
+                <h4>🌳 Arêtes :</h4>
+                <ul class="edge-list">${result.aretes_arbre.map(a => `<li>${a}</li>`).join('')}</ul>
+            </div>
         `;
-        
-        result.aretes_arbre.forEach(arete => {
-            html += `<li>${arete}</li>`;
-        });
-        
+    }
+
+    // --- PRIM / KRUSKAL ---
+    else if (result.type && (result.type === 'Prim' || result.type === 'Kruskal')) {
         html += `
-                </ul>
+            <div class="result-section">
+                <p><strong>⚖️ Coût total :</strong> ${result.poids_total}</p>
+            </div>
+            <div class="result-section">
+                <h4>🌳 Arêtes retenues :</h4>
+                <ul class="edge-list">${result.aretes.map(a => `<li>${a}</li>`).join('')}</ul>
             </div>
         `;
     }
     
-    else if (result.type && (result.type.includes('Prim') || result.type.includes('Kruskal'))) {
-        html += `
-            <div class="result-section">
-                ${result.depart ? `<p><strong>📍 Départ :</strong> ${result.depart}</p>` : ''}
-                <p><strong>⚖️ Poids total :</strong> ${result.poids_total} km</p>
-                <p><strong>🔢 Nombre d'arêtes :</strong> ${result.nombre_aretes}</p>
-                <p><strong>📍 Nœuds couverts :</strong> ${result.noeuds_couverts}</p>
-            </div>
-            <div class="result-section">
-                <h4>🌳 Arêtes de l'arbre couvrant minimum :</h4>
-                <ul class="edge-list">
-        `;
-        
-        result.aretes.forEach(arete => {
-            html += `<li>${arete}</li>`;
-        });
-        
-        html += `
-                </ul>
-            </div>
-        `;
-    }
-    
+    // --- PERT (Corrigé) ---
     else if (result.type && result.type.includes('PERT')) {
         html += `
             <div class="result-section">
-                <p><strong>⏱️ Durée totale du projet :</strong> ${result.duree_projet} jours</p>
-                <p><strong>⚠️ Tâches critiques :</strong> ${result.nb_taches_critiques} / ${result.nb_taches_totales}</p>
+                <p><strong>⏱️ Durée :</strong> ${result.duree_projet}</p>
+                <p><strong>⚠️ Critiques :</strong> ${result.taches_critiques_count} / ${result.taches_totales}</p>
             </div>
             <div class="result-section">
                 <h4>🎯 Chemin critique :</h4>
-                <div class="path-display">${result.chemin_critique.split(' → ').map(n => `<span class="node-badge critical">${n}</span>`).join(' → ')}</div>
+                <div class="path-display">${result.chemin_critique.map(n => `<span class="node-badge critical">${n}</span>`).join(' → ')}</div>
             </div>
             <div class="result-section">
-                <h4>📋 Détails des tâches :</h4>
+                <h4>📋 Détails :</h4>
                 <table class="pert-table">
-                    <thead>
-                        <tr>
-                            <th>Tâche</th>
-                            <th>Nom</th>
-                            <th>Durée</th>
-                            <th>ES</th>
-                            <th>EF</th>
-                            <th>LS</th>
-                            <th>LF</th>
-                            <th>Marge</th>
-                            <th>Critique</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Tâche</th><th>Durée</th><th>Marge</th><th>Critique</th></tr></thead>
                     <tbody>
         `;
-        
-        for (const [tache, info] of Object.entries(result.details)) {
-            const critiqueClass = info.critique === '✓' ? 'critical-row' : '';
-            html += `
-                <tr class="${critiqueClass}">
-                    <td><strong>${tache}</strong></td>
-                    <td>${info.nom}</td>
-                    <td>${info.duree}</td>
-                    <td>${info.ES}</td>
-                    <td>${info.EF}</td>
-                    <td>${info.LS}</td>
-                    <td>${info.LF}</td>
-                    <td>${info.marge}</td>
-                    <td>${info.critique}</td>
-                </tr>
-            `;
+        for (const [t, info] of Object.entries(result.details)) {
+            html += `<tr class="${info.critique ? 'critical-row' : ''}"><td>${t}</td><td>${info.duree}</td><td>${info.marge_totale}</td><td>${info.critique ? 'Oui' : 'Non'}</td></tr>`;
         }
-        
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
+        html += `</tbody></table></div>`;
     }
     
     else {
