@@ -235,6 +235,35 @@
         pre { color: var(--text); overflow-x: auto; font-size: 0.9rem; }
         
         .error-msg { border-left-color: var(--accent-2); color: var(--accent-2); }
+        /* Liste des arêtes */
+.edge-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.edge-list li {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--accent-2);
+    margin-bottom: 6px;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+}
+
+.result-section {
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.result-section h4 {
+    color: var(--accent-3);
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
     </style>
 </head>
 <body>
@@ -451,90 +480,115 @@
         }
 
         // --- VIS.JS ---
-        function drawGraph(matrixData, labelsData, highlightPath = []) {
-            let nodes = [];
-            let edges = [];
+        function drawGraph(matrixData, labelsData, highlightPath = [], highlightEdges = []) {
+    let nodes = [];
+    let edges = [];
 
-            // Noeuds
-            labelsData.forEach((label, index) => {
-                let colorBg = '#0a0e27';
-                let colorBorder = '#00ff88'; 
-                let size = 25;
-                let shadowColor = 'rgba(0, 255, 136, 0.5)';
+    // Noeuds
+    labelsData.forEach((label, index) => {
+        let colorBg = '#0a0e27';
+        let colorBorder = '#00ff88'; 
+        let size = 25;
+        let shadowColor = 'rgba(0, 255, 136, 0.5)';
 
-                if (highlightPath.includes(label)) {
-                    colorBg = '#00ff88';
-                    colorBorder = '#ffffff';
-                    shadowColor = '#00ff88';
-                    size = 35;
-                }
+        // Mise en surbrillance des nœuds dans le chemin
+        if (highlightPath.includes(label)) {
+            colorBg = '#00ff88';
+            colorBorder = '#ffffff';
+            shadowColor = '#00ff88';
+            size = 35;
+        }
 
-                nodes.push({
-                    id: index, 
-                    label: label, 
-                    color: {
-                        background: colorBg,
-                        border: colorBorder,
-                        highlight: { background: '#ffaa00', border: '#FFF' }
-                    },
-                    borderWidth: 2,
-                    font: { color: '#e8e8f0', face: 'Space Mono', size: 14 },
-                    shape: 'dot',
-                    size: size,
-                    shadow: { enabled: true, color: shadowColor, size: 10 }
-                });
-            });
+        nodes.push({
+            id: index, 
+            label: label, 
+            color: {
+                background: colorBg,
+                border: colorBorder,
+                highlight: { background: '#ffaa00', border: '#FFF' }
+            },
+            borderWidth: 2,
+            font: { color: '#e8e8f0', face: 'Space Mono', size: 14 },
+            shape: 'dot',
+            size: size,
+            shadow: { enabled: true, color: shadowColor, size: 10 }
+        });
+    });
 
-            // Arêtes
-            for (let i = 0; i < matrixData.length; i++) {
-                for (let j = 0; j < matrixData.length; j++) {
-                    let weight = matrixData[i][j];
+    // Arêtes - Gestion des arêtes en surbrillance
+    const edgeMap = new Map(); // Pour éviter les doublons
+    
+    for (let i = 0; i < matrixData.length; i++) {
+        for (let j = 0; j < matrixData.length; j++) {
+            let weight = matrixData[i][j];
+            
+            if (weight > 0 && weight !== "inf" && weight !== Infinity && weight !== null) {
+                
+                const u = labelsData[i];
+                const v = labelsData[j];
+                const edgeKey = `${i}-${j}`;
+                
+                // Par défaut : arête normale
+                let edgeColor = 'rgba(255, 255, 255, 0.2)';
+                let width = 1;
+                let fontColor = 'rgba(255,255,255,0.4)';
+                let arrows = 'to';
+                
+                // Vérifier si cette arête fait partie des arêtes en surbrillance
+                const isHighlightedEdge = highlightEdges.some(
+    edge => (edge[0] === u && edge[1] === v) || (edge[0] === v && edge[1] === u)
+);
+
+if (isHighlightedEdge) {
+    edgeColor = '#ff3366';
+    width = 4;
+    fontColor = '#ff3366';
+    arrows = ''; // Pas de flèche pour les arbres
+} else {
+                    // Vérifier si c'est une arête de chemin (pour Dijkstra/Bellman)
+                    let idxU = highlightPath.indexOf(u);
+                    let idxV = highlightPath.indexOf(v);
                     
-                    if (weight > 0 && weight !== "inf" && weight !== Infinity && weight !== null) {
-                        
-                        let edgeColor = 'rgba(255, 255, 255, 0.2)';
-                        let width = 1;
-                        let fontColor = 'rgba(255,255,255,0.4)';
-
-                        let u = labelsData[i];
-                        let v = labelsData[j];
-                        let idxU = highlightPath.indexOf(u);
-                        let idxV = highlightPath.indexOf(v);
-
-                        if (idxU !== -1 && idxV !== -1) {
-                             if (Math.abs(idxU - idxV) === 1) {
-                                 edgeColor = '#ff3366'; 
-                                 width = 3;
-                                 fontColor = '#ff3366';
-                             }
-                        }
-
-                        edges.push({
-                            from: i, to: j, label: String(weight), arrows: 'to', 
-                            color: { color: edgeColor, highlight: '#ffaa00' },
-                            width: width,
-                            font: { color: fontColor, strokeWidth: 0, align: 'top' }
-                        });
+                    if (idxU !== -1 && idxV !== -1 && Math.abs(idxU - idxV) === 1) {
+                        edgeColor = '#ffaa00'; 
+                        width = 3;
+                        fontColor = '#ffaa00';
                     }
                 }
-            }
 
-            let container = document.getElementById('graph-container');
-            let data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-            let options = {
-                physics: {
-                    enabled: true,
-                    solver: 'forceAtlas2Based',
-                    forceAtlas2Based: { gravitationalConstant: -60, springLength: 150 },
-                    stabilization: { iterations: 100 }
-                },
-                interaction: { hover: true, zoomView: true },
-                layout: { randomSeed: 2 }
-            };
-            
-            if (network) network.destroy();
-            network = new vis.Network(container, data, options);
+                edges.push({
+                    from: i, 
+                    to: j, 
+                    label: String(weight), 
+                    arrows: arrows, 
+                    color: { color: edgeColor, highlight: '#ffaa00' },
+                    width: width,
+                    font: { color: fontColor, strokeWidth: 0, align: 'top' }
+                });
+            }
         }
+    }
+
+    let container = document.getElementById('graph-container');
+    let data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+    let options = {
+        physics: {
+            enabled: true,
+            solver: 'forceAtlas2Based',
+            forceAtlas2Based: { 
+                gravitationalConstant: -60, 
+                springLength: 150,
+                avoidOverlap: 1
+            },
+            stabilization: { iterations: 150 }
+        },
+        interaction: { hover: true, zoomView: true },
+        layout: { randomSeed: 2 }
+    };
+    
+    if (network) network.destroy();
+    network = new vis.Network(container, data, options);
+}
 
         // --- APPEL API ---
         async function lancerCalcul() {
@@ -582,24 +636,41 @@
         const data = await response.json();
 
         if (data.status === 'success') {
+            // Mise à jour du graphe
             if (data.new_graph) {
                 currentMatrix = data.new_graph.matrix;
                 currentLabels = data.new_graph.labels;
                 document.getElementById('node-count').innerText = currentLabels.length;
+                
+                // Récupération des arêtes en surbrillance
+                const highlightEdges = data.new_graph.highlight_edges || [];
+                
+                switchTab('visu');
+                
+                setTimeout(() => {
+                    drawGraph(currentMatrix, currentLabels, data.path, highlightEdges);
+                }, 50);
+                
             } else if (isCustom && algo !== 'pert') {
                 try {
                     currentMatrix = JSON.parse(mStr.replace(/'/g, '"').replace(/inf/g, 'null'));
                     currentLabels = lStr.split(',').map(s => s.trim());
                 } catch(e) {}
+                
+                switchTab('visu');
+                
+                setTimeout(() => {
+                    drawGraph(currentMatrix, currentLabels, data.path);
+                }, 50);
+            } else {
+                switchTab('visu');
+                
+                setTimeout(() => {
+                    drawGraph(currentMatrix, currentLabels, data.path);
+                }, 50);
             }
 
-            switchTab('visu');
-            
-            setTimeout(() => {
-                drawGraph(currentMatrix, currentLabels, data.path);
-            }, 50);
-
-            // ✅ NOUVEAU : Utiliser la fonction de formatage
+            // Affichage des résultats
             resultsDiv.innerHTML = formatResultDisplay(data);
 
         } else {
@@ -636,10 +707,8 @@
     const result = data.result;
     let html = `<div class="result-card">`;
     
-    // En-tête avec le type d'algorithme
     html += `<h3>✅ ${result.type || 'Résultat'}</h3>`;
     
-    // Affichage selon le type d'algorithme
     if (result.type && result.type.includes('Dijkstra')) {
         html += `
             <div class="result-section">
@@ -741,6 +810,18 @@
                 <h4>🔍 Ordre de visite :</h4>
                 <div class="path-display">${result.ordre_visite.map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
             </div>
+            <div class="result-section">
+                <h4>🌳 Arêtes de l'arbre de découverte :</h4>
+                <ul class="edge-list">
+        `;
+        
+        result.aretes_arbre.forEach(arete => {
+            html += `<li>${arete}</li>`;
+        });
+        
+        html += `
+                </ul>
+            </div>
         `;
     }
     
@@ -753,7 +834,7 @@
                 <p><strong>📍 Nœuds couverts :</strong> ${result.noeuds_couverts}</p>
             </div>
             <div class="result-section">
-                <h4>🌳 Arêtes de l'arbre couvrant :</h4>
+                <h4>🌳 Arêtes de l'arbre couvrant minimum :</h4>
                 <ul class="edge-list">
         `;
         
@@ -820,7 +901,6 @@
         `;
     }
     
-    // Affichage brut en cas de format inconnu
     else {
         html += `<pre>${JSON.stringify(result, null, 2)}</pre>`;
     }
