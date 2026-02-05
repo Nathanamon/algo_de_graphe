@@ -2,210 +2,171 @@ from django.shortcuts import render
 from django.http import JsonResponse
 import json
 import ast
-import numpy as np
+import traceback
 
-# Importation des algorithmes
 from . import dijkstra, bellmanford, Floyd_Warshall, Matrice, MethodePert
 
 def index(request):
-    """Affiche la page principale avec la matrice par défaut."""
-    # Préparation des données par défaut pour le JS
+    """Page d'accueil avec données par défaut."""
+    # Nettoyage des inf pour le JSON
+    matrix_list = Matrice.M.tolist()
+    clean_matrix = [[(None if x == float('inf') else x) for x in row] for row in matrix_list]
+    
     context = {
-        'default_matrix': json.dumps(Matrice.M.tolist()),
+        'default_matrix': json.dumps(clean_matrix),
         'default_villes': json.dumps(Matrice.villes)
     }
     return render(request, 'index.html', context)
 
+def parse_matrix(raw_string):
+    """Convertit string -> liste en gérant inf/null."""
+    if not raw_string: return None
+    clean_str = raw_string.replace("inf", "None").replace("Infinity", "None").replace("null", "None")
+    try:
+        matrix = ast.literal_eval(clean_str)
+        return [[(float('inf') if val is None else float(val)) for val in row] for row in matrix]
+    except:
+        raise ValueError("Format de matrice invalide")
+
 def calculer(request):
-    """API qui reçoit les données du graphe et renvoie le résultat de l'algorithme."""
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        algo = data.get('algo')
+        depart = data.get('depart', '').strip()
+        arrivee = data.get('arrivee', '').strip()
+        
+        # Récupération données (sauf pour PERT qui a ses propres données par défaut si vide)
         try:
-            data = json.loads(request.body)
-            
-            algo = data.get('algo')
-            depart = data.get('depart', '').strip()
-            arrivee = data.get('arrivee', '').strip()
-            
-            # Récupération et nettoyage des données brutes
-            raw_matrix = data.get('matrix', '')
+            matrix = parse_matrix(data.get('matrix'))
             raw_labels = data.get('labels', '')
-
-            if not raw_matrix or not raw_labels:
-                return JsonResponse({
-                    'status': 'error',
-                    'error': 'Matrice et labels requis'
-                }, status=400)
-
-            # Conversion string -> structure Python
-            # Nettoyage pour gérer 'inf' correctement
-            clean_matrix = raw_matrix.replace('inf', 'float("inf")').replace('Infinity', 'float("inf")')
-            
-            try:
-                matrix = ast.literal_eval(clean_matrix)
-            except (ValueError, SyntaxError) as e:
-                return JsonResponse({
-                    'status': 'error',
-                    'error': f'Format de matrice invalide: {str(e)}'
-                }, status=400)
-            
-            # Traitement des labels
             labels = [l.strip() for l in raw_labels.split(',') if l.strip()]
-            
-            if not labels:
-                return JsonResponse({
-                    'status': 'error',
-                    'error': 'Veuillez fournir au moins un label'
-                }, status=400)
+        except:
+            matrix, labels = None, []
 
-            # Validation: taille de la matrice doit correspondre au nombre de labels
-            if len(matrix) != len(labels) or any(len(row) != len(labels) for row in matrix):
-                return JsonResponse({
-                    'status': 'error',
-                    'error': f'La matrice doit être carrée {len(labels)}x{len(labels)}'
-                }, status=400)
+        resultat = {}
+        path_nodes = []
+        # Nouveaux champs pour forcer la mise à jour du graphe (utile pour PERT)
+        new_graph_data = None 
 
-            resultat = {}
-            path_nodes = []
+        # --- ALGORITHMES ---
 
-            # --- AIGUILLAGE DES ALGORITHMES ---
-            
-            if algo == 'dijkstra':
-                if not depart or not arrivee:
-                    return JsonResponse({
-                        'status': 'error',
-                        'error': 'Nœuds de départ et d\'arrivée requis pour Dijkstra'
-                    }, status=400)
-                
-                if depart not in labels or arrivee not in labels:
-                    return JsonResponse({
-                        'status': 'error',
-                        'error': f'Nœuds invalides. Nœuds disponibles: {", ".join(labels)}'
-                    }, status=400)
-                
-                res = dijkstra.dijkstra(depart, arrivee, matrix=matrix, labels=labels)
-                
-                if isinstance(res, dict):
-                    resultat = res
-                    path_nodes = res['chemin'].split(' -> ')
-                else:
-                    resultat = {'message': str(res)}
-
-            elif algo == 'bellman':
-                if not depart:
-                    return JsonResponse({
-                        'status': 'error',
-                        'error': 'Nœud de départ requis pour Bellman-Ford'
-                    }, status=400)
-                
-                if depart not in labels:
-                    return JsonResponse({
-                        'status': 'error',
-                        'error': f'Nœud de départ invalide. Nœuds disponibles: {", ".join(labels)}'
-                    }, status=400)
-                
-                res = bellmanford.bellman_ford(depart, matrix=matrix, labels=labels)
-                
-                # Si c'est une liste d'indices (cycle détecté)
-                if isinstance(res, list) and len(res) > 0 and isinstance(res[0], int):
-                    cycle_names = [labels[i] for i in res]
-                    path_nodes = cycle_names
-                    resultat = {
-                        'message': "⚠️ Cycle négatif détecté !",
-                        'cycle': " → ".join(cycle_names) + " → " + cycle_names[0],
-                        'type': 'cycle_negatif'
-                    }
-                
-                # Si c'est une liste de distances
-                elif isinstance(res, list) and len(res) > 0:
-                    distances_dict = {}
-                    for i, dist in enumerate(res):
-                        if dist != float('inf'):
-                            distances_dict[labels[i]] = dist
-                    
-                    resultat = {
-                        'depart': depart,
-                        'distances': distances_dict,
-                        'message': f"Distances minimales depuis {depart}"
-                    }
-                    
-                    # Si arrivée est spécifiée, mettre en évidence le chemin
-                    if arrivee and arrivee in labels:
-                        idx_arr = labels.index(arrivee)
-                        resultat['distance_vers_arrivee'] = res[idx_arr]
-                else:
-                    resultat = {'message': str(res)}
-
-            elif algo == 'floyd':
-                dist_matrix = Floyd_Warshall.floyd_warshall(matrix=matrix, labels=labels)
-                
-                # Conversion en format lisible
-                readable_matrix = []
-                for i in range(len(labels)):
-                    row = []
-                    for j in range(len(labels)):
-                        val = dist_matrix[i][j]
-                        if val == float('inf'):
-                            row.append('∞')
-                        else:
-                            row.append(round(val, 2))
-                    readable_matrix.append(row)
-                
-                # Trouver le nœud le plus central (somme des distances minimale)
-                centralite = []
-                for i in range(len(labels)):
-                    somme = sum(d for d in dist_matrix[i] if d != float('inf'))
-                    centralite.append((labels[i], somme))
-                
-                centralite.sort(key=lambda x: x[1])
-                noeud_central = centralite[0][0] if centralite else None
-                
-                resultat = {
-                    'matrice_distances': readable_matrix,
-                    'labels': labels,
-                    'noeud_plus_central': noeud_central,
-                    'centralite_score': round(centralite[0][1], 2) if centralite else None,
-                    'message': f"Toutes les distances calculées. Nœud le plus central: {noeud_central}"
-                }
-
-            elif algo == 'pert':
-                # Pour PERT, on utilise les données par défaut ou on pourrait parser un format spécial
-                # Ici on utilise le projet par défaut
-                chemin_critique = MethodePert.calcul_pert()
-                
-                resultat = {
-                    'chemin_critique': chemin_critique,
-                    'message': f"Chemin critique: {' → '.join(chemin_critique)}",
-                    'note': 'Utilisation du projet par défaut (construction maison). Consultez la console pour les détails.'
-                }
-                
-                path_nodes = chemin_critique
-            
+        if algo == 'dijkstra':
+            res = dijkstra.dijkstra(depart, arrivee, matrix=matrix, labels=labels)
+            if isinstance(res, dict):
+                resultat = res
+                path_nodes = res['chemin'].split(' -> ')
             else:
-                return JsonResponse({
-                    'status': 'error',
-                    'error': f'Algorithme inconnu: {algo}'
-                }, status=400)
+                resultat = {'message': str(res)}
 
-            return JsonResponse({
-                'status': 'success',
-                'result': resultat,
-                'path': path_nodes
-            })
+        elif algo == 'bellman':
+            res = bellmanford.bellman_ford(depart, matrix=matrix, labels=labels)
+            
+            if "error" in res:
+                return JsonResponse({'status': 'error', 'error': res['error']})
 
-        except json.JSONDecodeError as e:
-            return JsonResponse({
-                'status': 'error',
-                'error': f'JSON invalide: {str(e)}'
-            }, status=400)
-        except Exception as e:
-            import traceback
-            return JsonResponse({
-                'status': 'error',
-                'error': str(e),
-                'traceback': traceback.format_exc()
-            }, status=500)
+            if res['type'] == 'cycle':
+                cycle_names = [labels[i] for i in res['cycle']]
+                path_nodes = cycle_names
+                resultat = {'message': "⚠️ Cycle négatif détecté !", 'cycle': " -> ".join(cycle_names)}
+            else:
+                # Reconstruction du chemin si une arrivée est donnée
+                dists = res['distances']
+                preds = res['predecesseurs']
+                
+                if arrivee and arrivee in labels:
+                    idx_arr = labels.index(arrivee)
+                    if dists[idx_arr] == float('inf'):
+                        resultat = {'message': "Pas de chemin."}
+                    else:
+                        # On remonte les prédécesseurs
+                        curr = idx_arr
+                        path_indices = []
+                        while curr != -1:
+                            path_indices.insert(0, curr)
+                            curr = preds[curr]
+                        path_nodes = [labels[i] for i in path_indices]
+                        resultat = {
+                            'distance': dists[idx_arr],
+                            'chemin': " -> ".join(path_nodes)
+                        }
+                
+                # On renvoie aussi toutes les distances pour affichage
+                formatted_dists = {labels[i]: (d if d != float('inf') else "∞") for i, d in enumerate(dists)}
+                resultat['toutes_distances'] = formatted_dists
 
-    return JsonResponse({
-        'status': 'error',
-        'error': 'Méthode non autorisée. Utilisez POST.'
-    }, status=405)
+        elif algo == 'floyd':
+            dist_matrix = Floyd_Warshall.floyd_warshall(matrix=matrix, labels=labels)
+            
+            # Calcul de centralité pour colorier un nœud
+            min_sum = float('inf')
+            central_node = None
+            for i, row in enumerate(dist_matrix):
+                s = sum(d for d in row if d != float('inf'))
+                if s < min_sum and s > 0:
+                    min_sum = s
+                    central_node = labels[i]
+            
+            if central_node:
+                path_nodes = [central_node] # On colorie juste ce nœud
+                resultat['info'] = f"Nœud le plus central : {central_node}"
+
+            # Matrice lisible
+            readable = [[("∞" if x == float('inf') else x) for x in row] for row in dist_matrix]
+            resultat['matrice'] = readable
+
+        elif algo == 'pert':
+            # 1. Récupération des données
+            custom_tasks_str = data.get('pert_data')
+            taches_projet = None
+            
+            if custom_tasks_str:
+                try:
+                    # On convertit le JSON reçu en dictionnaire Python
+                    taches_projet = json.loads(custom_tasks_str)
+                except json.JSONDecodeError:
+                    return JsonResponse({'status': 'error', 'error': 'Format JSON des tâches invalide'})
+            
+            # Si pas de données custom, on utilise celles par défaut (gérées dans calcul_pert si None)
+            
+            # 2. Calcul
+            # On passe taches_projet (qui est soit le dict custom, soit None)
+            chemin = MethodePert.calcul_pert(taches_projet)
+            path_nodes = chemin
+            
+            # 3. Construction du graphe PERT pour l'affichage
+            # Si on a utilisé le custom, on prend le custom, sinon le défaut
+            if taches_projet:
+                taches = taches_projet
+            else:
+                taches = MethodePert.default_taches
+                
+            pert_labels = list(taches.keys())
+            n_p = len(pert_labels)
+            pert_matrix = [[0]*n_p for _ in range(n_p)]
+            
+            for t_idx, t_name in enumerate(pert_labels):
+                if 'predecesseurs' in taches[t_name]:
+                    for pred in taches[t_name]['predecesseurs']:
+                        if pred in pert_labels:
+                            p_idx = pert_labels.index(pred)
+                            pert_matrix[p_idx][t_idx] = taches[pred]['duree']
+            
+            resultat = {'chemin_critique': chemin}
+            
+            new_graph_data = {
+                'matrix': pert_matrix,
+                'labels': pert_labels
+            }
+
+        return JsonResponse({
+            'status': 'success',
+            'result': resultat,
+            'path': path_nodes,
+            'new_graph': new_graph_data # Champ spécial pour PERT
+        })
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'error': str(e), 'trace': traceback.format_exc()})

@@ -3,531 +3,640 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analyse de Graphes - Interface Interactive</title>
+    <title>Projet ALMF51 - Algorithmes de Graphes</title>
+    
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            display: flex; 
-            height: 100vh; 
-            margin: 0; 
-            overflow: hidden;
-            background: #f5f5f5;
+        /* --- 1. VARIABLES & RESET --- */
+        :root {
+            --primary: #0a0e27;
+            --secondary: #1a1f3a;
+            --accent: #00ff88;     /* Vert Néon */
+            --accent-2: #ff3366;   /* Rose Néon */
+            --accent-3: #ffaa00;   /* Orange/Or */
+            --text: #e8e8f0;
+            --text-muted: #9b9baa;
+            --border: #2a2f4a;
+            --glass: rgba(26, 31, 58, 0.7);
         }
-        
-        /* Barre latérale de commande */
-        #sidebar { 
-            width: 400px; 
-            padding: 25px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-right: 1px solid #ddd; 
-            display: flex; 
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: linear-gradient(135deg, var(--primary) 0%, #0f1535 50%, var(--secondary) 100%);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 2. LAYOUT --- */
+        .app-container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+            padding: 20px;
+            height: 100vh;
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+
+        /* --- 3. SIDEBAR --- */
+        .sidebar {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+            backdrop-filter: blur(20px);
+            display: flex;
             flex-direction: column;
             overflow-y: auto;
-            box-shadow: 4px 0 15px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
-        /* Zone de dessin du graphe */
-        #graph-container { 
-            flex-grow: 1; 
-            background: #ffffff; 
-            position: relative;
+        .brand h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-3) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
         }
 
-        h2 { 
-            color: white; 
-            margin-top: 0;
-            margin-bottom: 25px;
-            font-size: 1.8em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .control-group { margin-bottom: 18px; }
-        label { 
-            display: block; 
-            font-weight: 600; 
-            margin-bottom: 6px; 
-            font-size: 0.95em; 
-            color: #fff;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        }
-        
-        input[type="text"], select, textarea {
-            width: 100%; 
-            padding: 10px 12px; 
-            box-sizing: border-box; 
-            border: 2px solid rgba(255,255,255,0.3); 
-            border-radius: 6px;
-            background: rgba(255,255,255,0.9);
-            font-size: 0.95em;
-            transition: all 0.3s;
-        }
-        
-        input[type="text"]:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #fff;
-            background: white;
-            box-shadow: 0 0 10px rgba(255,255,255,0.5);
-        }
-        
-        textarea { 
-            height: 140px; 
-            font-family: 'Courier New', monospace; 
-            font-size: 12px;
-            resize: vertical;
+        .brand .subtitle {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
         }
 
-        button {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1.05em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            margin-top: 10px;
-        }
-        button:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        }
-        button:active {
-            transform: translateY(0);
-        }
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        #resultat {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(255,255,255,0.95);
-            border-radius: 8px;
-            border-left: 5px solid #f5576c;
-            word-wrap: break-word;
-            color: #333;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        #resultat pre {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
-            color: #333;
-            margin: 10px 0;
-        }
-        
-        .row { display: flex; gap: 10px; }
-        
-        .hint {
-            font-size: 0.8em; 
-            color: rgba(255,255,255,0.85); 
-            margin-top: 5px;
-            font-style: italic;
-        }
-        
-        .algo-info {
-            background: rgba(255,255,255,0.15);
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 18px;
-            font-size: 0.88em;
-            border-left: 3px solid rgba(255,255,255,0.6);
-            line-height: 1.5;
-        }
-        
-        /* Loader animation */
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-            vertical-align: middle;
-        }
-        
-        .success { color: #28a745; font-weight: 600; }
-        .error { color: #dc3545; font-weight: 600; }
-        
-        .graph-legend {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            font-size: 0.9em;
-        }
-        
-        .graph-legend h4 {
-            margin: 0 0 10px 0;
-            font-size: 1em;
-        }
-        
-        .legend-item {
+        .control-section { margin-bottom: 25px; }
+        .control-title {
+            color: var(--accent);
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
-            margin: 5px 0;
+            gap: 8px;
         }
         
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 10px;
-            border: 2px solid #333;
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
         }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(0, 255, 136, 0.05);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.1);
+        }
+
+        textarea { resize: vertical; min-height: 100px; font-size: 0.8rem; }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #00b862);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
+        }
+
+        .toggle-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .toggle-btn {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: 0.3s;
+        }
+        .toggle-btn.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        /* --- 4. MAIN CONTENT --- */
+        .main-content {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden; /* Important pour que le flex fonctionne bien */
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .tabs { display: flex; gap: 15px; }
+        .tab {
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            transition: 0.3s;
+        }
+        .tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .tab.active {
+            border-color: var(--accent-3);
+            color: var(--accent-3);
+            background: rgba(255, 170, 0, 0.1);
+        }
+
+        /* --- CORRECTION VIS.JS --- */
+        #graph-container {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            position: relative;
+            width: 100%;
+            height: 100%; /* Force la hauteur */
+            min-height: 500px; /* Sécurité */
+            display: block; /* Toujours visible pour initialisation */
+        }
+
+        #results-panel {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 30px;
+            overflow-y: auto;
+            display: none;
+            height: 100%;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 4px solid var(--accent);
+            padding: 20px;
+            border-radius: 0 12px 12px 0;
+            margin-bottom: 20px;
+        }
+        .result-card h3 { color: var(--accent); margin-bottom: 10px; font-family: 'Syne'; }
+        pre { color: var(--text); overflow-x: auto; font-size: 0.9rem; }
+        
+        .error-msg { border-left-color: var(--accent-2); color: var(--accent-2); }
     </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <h2>📊 Analyse de Graphes</h2>
+    <div style="display:none">{% csrf_token %}</div>
 
-    <div class="algo-info" id="algo-description">
-        <strong>Dijkstra :</strong> Calcule le plus court chemin entre deux nœuds dans un graphe à poids positifs.
-    </div>
-
-    <div class="control-group">
-        <label>⚙️ Algorithme</label>
-        <select id="algo-select" onchange="updateAlgoInfo()">
-            <option value="dijkstra">Dijkstra (Plus court chemin)</option>
-            <option value="bellman">Bellman-Ford (Cycles négatifs)</option>
-            <option value="floyd">Floyd-Warshall (Toutes les distances)</option>
-            <option value="pert">PERT (Chemin critique)</option>
-        </select>
-    </div>
-
-    <div class="control-group">
-        <label>📐 Matrice d'adjacence (format Python)</label>
-        <textarea id="matrix-input" placeholder="[[0, 5, inf], [5, 0, 3], [inf, 3, 0]]"></textarea>
-        <div class="hint">
-            Utilisez 'inf' pour l'infini. La diagonale doit être à 0.
-        </div>
-    </div>
-
-    <div class="control-group">
-        <label>🏷️ Noms des nœuds (séparés par virgules)</label>
-        <input type="text" id="labels-input" placeholder="A, B, C, D, E">
-        <div class="hint">
-            Exemples : Villes, Serveurs, Tâches, Étapes...
-        </div>
-    </div>
-
-    <div class="row" id="node-selection">
-        <div class="control-group" style="flex:1">
-            <label>📍 Nœud de départ</label>
-            <input type="text" id="start-node" placeholder="Ex: A">
-        </div>
-        <div class="control-group" style="flex:1">
-            <label>🎯 Nœud d'arrivée</label>
-            <input type="text" id="end-node" placeholder="Ex: E">
-        </div>
-    </div>
-
-    <button onclick="lancerCalcul()" id="calc-button">
-        <span id="button-text">🚀 Lancer le calcul</span>
-    </button>
-
-    <div id="resultat" style="display:none;"></div>
-</div>
-
-<div id="graph-container">
-    <div class="graph-legend" id="graph-legend" style="display:none;">
-        <h4>Légende</h4>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #D2E5FF; border-color: #2B7CE9;"></div>
-            <span>Nœud standard</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #FFD700; border-color: #FF8C00;"></div>
-            <span>Chemin optimal</span>
-        </div>
-        <div class="legend-item">
-            <div style="width: 20px; height: 3px; background: red; margin-right: 10px;"></div>
-            <span>Arête du chemin</span>
-        </div>
-    </div>
-</div>
-
-<script>
-    // --- 1. INITIALISATION ---
-    let matrix = {{ default_matrix|safe }};
-    let labels = {{ default_villes|safe }};
-    let network = null;
-
-    // Remplissage des champs initiaux
-    document.getElementById('matrix-input').value = JSON.stringify(matrix).replace(/null/g, 'inf');
-    document.getElementById('labels-input').value = labels.join(', ');
-
-    // --- 2. UPDATE ALGO INFO ---
-    function updateAlgoInfo() {
-        const algo = document.getElementById('algo-select').value;
-        const infoDiv = document.getElementById('algo-description');
-        const nodeSelection = document.getElementById('node-selection');
+    <div class="app-container">
         
-        const descriptions = {
-            'dijkstra': '<strong>Dijkstra :</strong> Calcule le plus court chemin entre deux nœuds dans un graphe à poids positifs. Utilise une file de priorité pour une efficacité optimale.',
-            'bellman': '<strong>Bellman-Ford :</strong> Calcule les plus courts chemins et détecte les cycles négatifs. Fonctionne avec des poids négatifs.',
-            'floyd': '<strong>Floyd-Warshall :</strong> Calcule toutes les distances entre toutes les paires de nœuds. Idéal pour analyser la connectivité globale du graphe.',
-            'pert': '<strong>PERT :</strong> Méthode d\'ordonnancement de projet. Identifie le chemin critique et les marges de chaque tâche.'
-        };
-        
-        infoDiv.innerHTML = descriptions[algo];
-        
-        // Afficher/masquer la sélection de nœuds selon l'algorithme
-        if (algo === 'floyd' || algo === 'pert') {
-            nodeSelection.style.display = 'none';
-        } else {
-            nodeSelection.style.display = 'flex';
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>ALMF51</h1>
+                <div class="subtitle">Algorithmes de Graphes</div>
+            </div>
+
+            <div class="control-section">
+                <div class="control-title">💾 Données</div>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" onclick="toggleSource('default')" id="btn-default">Par Défaut</button>
+                    <button class="toggle-btn" onclick="toggleSource('custom')" id="btn-custom">Custom</button>
+                </div>
+                
+                <div id="custom-inputs" style="display: none;">
+                <div id="standard-inputs">
+                    <label>Villes (séparées par virgules)</label>
+                    <input type="text" id="labels-input">
+                    
+                    <label>Matrice (Liste Python ou JSON)</label>
+                    <textarea id="matrix-input"></textarea>
+                </div>
+
+                <div id="pert-inputs" style="display: none;">
+                    <label>Tâches (Format JSON)</label>
+                    <div style="font-size: 0.7rem; color: #9b9baa; margin-bottom: 5px;">
+                        Ex: {"A": {"duree": 3, "predecesseurs": []}, "B": {"duree": 2, "predecesseurs": ["A"]}}
+                    </div>
+                    <textarea id="pert-json-input" style="height: 200px; font-family: monospace;"></textarea>
+                </div>
+            </div>
+                <div id="default-info" style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">
+                    Utilisation de la carte de France par défaut (10 villes).
+                </div>
+            </div>
+
+            <div class="control-section">
+                <div class="control-title">⚙️ Algorithme</div>
+                <select id="algo-select" onchange="updateUIForAlgo()">
+                    <option value="dijkstra">Dijkstra (Plus court chemin)</option>
+                    <option value="bellman">Bellman-Ford (Cycles négatifs)</option>
+                    <option value="floyd">Floyd-Warshall (Toutes distances)</option>
+                    <option value="pert">PERT (Ordonnancement)</option>
+                </select>
+            </div>
+
+            <div class="control-section" id="node-params">
+                <div class="control-title">📍 Paramètres</div>
+                <label>Départ</label>
+                <input type="text" id="start-node" placeholder="Ex: Bordeaux">
+                
+                <label id="end-label">Arrivée</label>
+                <input type="text" id="end-node" placeholder="Ex: Lille">
+            </div>
+
+            <button class="btn btn-primary" onclick="lancerCalcul()" id="btn-run">
+                ▶ Lancer l'analyse
+            </button>
+        </aside>
+
+        <main class="main-content">
+            <div class="header-bar">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('visu')" id="tab-visu">📊 Visualisation</div>
+                    <div class="tab" onclick="switchTab('res')" id="tab-res">📋 Résultats Détaillés</div>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">
+                    <span id="node-count">0</span> Villes chargées
+                </div>
+            </div>
+
+            <div id="graph-container"></div>
+            
+            <div id="results-panel">
+                <div style="text-align: center; color: var(--text-muted); margin-top: 50px;">
+                    <h2>Résultats</h2>
+                    <p>Les résultats textuels apparaîtront ici après le calcul.</p>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        // --- DATA ---
+        let defaultMatrix = {{ default_matrix|safe }};
+        let defaultLabels = {{ default_villes|safe }};
+        let currentMatrix = defaultMatrix;
+        let currentLabels = defaultLabels;
+        let network = null;
+        let isCustom = false;
+
+        // Init UI
+        document.getElementById('node-count').innerText = currentLabels.length;
+        document.getElementById('labels-input').value = currentLabels.join(', ');
+        document.getElementById('matrix-input').value = JSON.stringify(currentMatrix).replace(/null/g, 'inf');
+
+        // --- TABS ---
+        function switchTab(tab) {
+            const viewVisu = document.getElementById('graph-container');
+            const viewRes = document.getElementById('results-panel');
+            const tabVisu = document.getElementById('tab-visu');
+            const tabRes = document.getElementById('tab-res');
+
+            if (tab === 'visu') {
+                viewVisu.style.display = 'block';
+                viewRes.style.display = 'none';
+                tabVisu.classList.add('active');
+                tabRes.classList.remove('active');
+                
+                // IMPORTANT: Forcer le redessin si Vis.js s'est initialisé caché
+                if(network) {
+                    network.fit(); 
+                }
+            } else {
+                viewVisu.style.display = 'none';
+                viewRes.style.display = 'block';
+                tabVisu.classList.remove('active');
+                tabRes.classList.add('active');
+            }
         }
-    }
 
-    // --- 3. FONCTION DE DESSIN (Vis.js) ---
-    function drawGraph(matrixData, labelsData, highlightPath = []) {
-        let nodes = [];
-        let edges = [];
+        // --- SOURCE TOGGLE ---
+        function toggleSource(source) {
+            const btnDef = document.getElementById('btn-default');
+            const btnCust = document.getElementById('btn-custom');
+            const custInputs = document.getElementById('custom-inputs');
+            const defInfo = document.getElementById('default-info');
 
-        // Création des nœuds
-        labelsData.forEach((label, index) => {
-            let color = { background: '#D2E5FF', border: '#2B7CE9' };
-            let borderWidth = 2;
-            let size = 25;
+            if (source === 'default') {
+                isCustom = false;
+                btnDef.classList.add('active');
+                btnCust.classList.remove('active');
+                custInputs.style.display = 'none';
+                defInfo.style.display = 'block';
+                // Reset graph
+                currentMatrix = defaultMatrix;
+                currentLabels = defaultLabels;
+                drawGraph(currentMatrix, currentLabels);
+            } else {
+                isCustom = true;
+                btnDef.classList.remove('active');
+                btnCust.classList.add('active');
+                custInputs.style.display = 'block';
+                defInfo.style.display = 'none';
+            }
+            updateUIForAlgo();
+        }
 
-            // Mise en surbrillance des nœuds du chemin
-            if (highlightPath.includes(label)) {
-                color = { background: '#FFD700', border: '#FF8C00' };
-                borderWidth = 4;
-                size = 30;
+        function updateUIForAlgo() {
+            const algo = document.getElementById('algo-select').value;
+            const nodeParams = document.getElementById('node-params');
+            const endLabel = document.getElementById('end-label');
+            const endInput = document.getElementById('end-node');
+            
+            // Gestion des inputs Custom (Matrice vs PERT JSON)
+            const standardInputs = document.getElementById('standard-inputs');
+            const pertInputs = document.getElementById('pert-inputs');
+
+            if (algo === 'pert') {
+                nodeParams.style.display = 'none';
+                // Si on est en mode Custom, on affiche l'input PERT
+                if (isCustom) {
+                    standardInputs.style.display = 'none';
+                    pertInputs.style.display = 'block';
+                }
+            } else if (algo === 'floyd') {
+                nodeParams.style.display = 'none';
+                if (isCustom) {
+                    standardInputs.style.display = 'block';
+                    pertInputs.style.display = 'none';
+                }
+            } else {
+                // Dijkstra / Bellman
+                nodeParams.style.display = 'block';
+                if (isCustom) {
+                    standardInputs.style.display = 'block';
+                    pertInputs.style.display = 'none';
+                }
+
+                if (algo === 'bellman') {
+                    endLabel.style.display = 'none';
+                    endInput.style.display = 'none';
+                } else {
+                    endLabel.style.display = 'block';
+                    endInput.style.display = 'block';
+                }
+            }
+        }
+
+        // --- VIS.JS ---
+        function drawGraph(matrixData, labelsData, highlightPath = []) {
+            let nodes = [];
+            let edges = [];
+
+            // Noeuds
+            labelsData.forEach((label, index) => {
+                let colorBg = '#0a0e27';
+                let colorBorder = '#00ff88'; 
+                let size = 25;
+                let shadowColor = 'rgba(0, 255, 136, 0.5)';
+
+                if (highlightPath.includes(label)) {
+                    colorBg = '#00ff88';
+                    colorBorder = '#ffffff';
+                    shadowColor = '#00ff88';
+                    size = 35;
+                }
+
+                nodes.push({
+                    id: index, 
+                    label: label, 
+                    color: {
+                        background: colorBg,
+                        border: colorBorder,
+                        highlight: { background: '#ffaa00', border: '#FFF' }
+                    },
+                    borderWidth: 2,
+                    font: { color: '#e8e8f0', face: 'Space Mono', size: 14 },
+                    shape: 'dot',
+                    size: size,
+                    shadow: { enabled: true, color: shadowColor, size: 10 }
+                });
+            });
+
+            // Arêtes
+            for (let i = 0; i < matrixData.length; i++) {
+                for (let j = 0; j < matrixData.length; j++) {
+                    let weight = matrixData[i][j];
+                    
+                    if (weight > 0 && weight !== "inf" && weight !== Infinity && weight !== null) {
+                        
+                        let edgeColor = 'rgba(255, 255, 255, 0.2)';
+                        let width = 1;
+                        let fontColor = 'rgba(255,255,255,0.4)';
+
+                        let u = labelsData[i];
+                        let v = labelsData[j];
+                        let idxU = highlightPath.indexOf(u);
+                        let idxV = highlightPath.indexOf(v);
+
+                        if (idxU !== -1 && idxV !== -1) {
+                             if (Math.abs(idxU - idxV) === 1) {
+                                 edgeColor = '#ff3366'; 
+                                 width = 3;
+                                 fontColor = '#ff3366';
+                             }
+                        }
+
+                        edges.push({
+                            from: i, to: j, label: String(weight), arrows: 'to', 
+                            color: { color: edgeColor, highlight: '#ffaa00' },
+                            width: width,
+                            font: { color: fontColor, strokeWidth: 0, align: 'top' }
+                        });
+                    }
+                }
             }
 
-            nodes.push({
-                id: index, 
-                label: label, 
-                color: color, 
-                borderWidth: borderWidth,
-                font: { size: 16, bold: true },
-                size: size,
-                shape: 'circle'
-            });
-        });
+            let container = document.getElementById('graph-container');
+            let data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            let options = {
+                physics: {
+                    enabled: true,
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: { gravitationalConstant: -60, springLength: 150 },
+                    stabilization: { iterations: 100 }
+                },
+                interaction: { hover: true, zoomView: true },
+                layout: { randomSeed: 2 }
+            };
+            
+            if (network) network.destroy();
+            network = new vis.Network(container, data, options);
+        }
 
-        // Création des arêtes
-        for (let i = 0; i < matrixData.length; i++) {
-            for (let j = 0; j < matrixData.length; j++) {
-                let weight = matrixData[i][j];
-                
-                // Vérification robuste de la validité du poids
-                if (weight && weight > 0 && weight !== "inf" && weight !== null && weight !== Infinity && !isNaN(weight)) {
-                    
-                    let edgeColor = { color: '#848484', highlight: '#2B7CE9' };
-                    let width = 2;
-                    let dashes = false;
+        // --- APPEL API ---
+        async function lancerCalcul() {
+            const btn = document.getElementById('btn-run');
+            const resultsDiv = document.getElementById('results-panel');
+            
+            btn.innerHTML = '⏳ Calcul...';
+            btn.disabled = true;
 
-                    // Mise en surbrillance du chemin
-                    let labelU = labelsData[i];
-                    let labelV = labelsData[j];
-                    let idxInPathU = highlightPath.indexOf(labelU);
-                    let idxInPathV = highlightPath.indexOf(labelV);
+            try {
+                const algo = document.getElementById('algo-select').value;
+                let mStr = null, lStr = null, pertStr = null;
 
-                    if (idxInPathU !== -1 && idxInPathV !== -1 && Math.abs(idxInPathU - idxInPathV) === 1) {
-                        edgeColor = { color: '#FF4444', highlight: '#FF0000' };
-                        width = 4;
+                // Préparation des données
+                if (isCustom) {
+                    if (algo === 'pert') {
+                        // Récupération du JSON PERT
+                        pertStr = document.getElementById('pert-json-input').value;
+                        // On essaie de parser pour prévisualiser (optionnel)
+                        try {
+                            // On ne peut pas facilement dessiner le graphe PERT avant le calcul du backend
+                            // car il faut transformer les tâches en noeuds/liens
+                        } catch(e) {}
+                    } else {
+                        // Récupération Matrice classique
+                        mStr = document.getElementById('matrix-input').value;
+                        lStr = document.getElementById('labels-input').value;
+                    }
+                } else {
+                    // Données par défaut
+                    mStr = JSON.stringify(defaultMatrix);
+                    lStr = defaultLabels.join(', ');
+                }
+
+                const depart = document.getElementById('start-node').value;
+                const arrivee = document.getElementById('end-node').value;
+
+                // Envoi
+                const response = await fetch('/api/calculer/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        algo: algo, 
+                        matrix: mStr, 
+                        labels: lStr,
+                        pert_data: pertStr, // Nouveau champ !
+                        depart: depart, 
+                        arrivee: arrivee
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    if (data.new_graph) {
+                        currentMatrix = data.new_graph.matrix;
+                        currentLabels = data.new_graph.labels;
+                        document.getElementById('node-count').innerText = currentLabels.length;
+                    } else if (isCustom && algo !== 'pert') {
+                         // Mise à jour locale pour les algos classiques custom
+                         try {
+                            currentMatrix = JSON.parse(mStr.replace(/'/g, '"').replace(/inf/g, 'null'));
+                            currentLabels = lStr.split(',').map(s => s.trim());
+                         } catch(e) {}
                     }
 
-                    edges.push({
-                        from: i, 
-                        to: j, 
-                        label: String(weight), 
-                        arrows: { to: { enabled: true, scaleFactor: 1 } },
-                        color: edgeColor,
-                        width: width,
-                        font: { align: 'middle', size: 12, background: 'white', strokeWidth: 0 },
-                        smooth: { type: 'curvedCW', roundness: 0.2 },
-                        dashes: dashes
-                    });
-                }
-            }
-        }
+                    switchTab('visu');
+                    
+                    setTimeout(() => {
+                        drawGraph(currentMatrix, currentLabels, data.path);
+                    }, 50);
 
-        let container = document.getElementById('graph-container');
-        let data = { 
-            nodes: new vis.DataSet(nodes), 
-            edges: new vis.DataSet(edges) 
-        };
-        
-        let options = {
-            physics: {
-                enabled: true,
-                solver: 'forceAtlas2Based',
-                forceAtlas2Based: {
-                    gravitationalConstant: -50,
-                    centralGravity: 0.01,
-                    springLength: 200,
-                    springConstant: 0.08
-                },
-                stabilization: { 
-                    iterations: 150,
-                    updateInterval: 25
-                }
-            },
-            edges: {
-                font: { align: 'top', size: 12 },
-                smooth: { type: 'dynamic' }
-            },
-            interaction: { 
-                hover: true,
-                tooltipDelay: 200,
-                navigationButtons: true,
-                keyboard: true
-            },
-            nodes: {
-                borderWidth: 2
-            }
-        };
-        
-        // Destroy previous network if exists
-        if (network !== null) {
-            network.destroy();
-        }
-        
-        network = new vis.Network(container, data, options);
-        
-        // Afficher la légende si un chemin est surligné
-        const legend = document.getElementById('graph-legend');
-        if (highlightPath.length > 0) {
-            legend.style.display = 'block';
-        } else {
-            legend.style.display = 'none';
-        }
-    }
+                    // Affichage résultat texte
+                    let html = `<div class="result-card"><h3>✅ Résultat : ${algo.toUpperCase()}</h3>`;
+                    
+                    if (data.path && data.path.length > 0) {
+                         html += `<div style="display:flex; gap:5px; flex-wrap:wrap; margin:10px 0;">
+                            ${data.path.map(n => `<span style="background:var(--accent); color:#000; padding:2px 8px; border-radius:4px; font-weight:bold;">${n}</span>`).join(' ➜ ')}
+                         </div>`;
+                    }
+                    html += `<pre>${JSON.stringify(data.result, null, 2)}</pre></div>`;
+                    resultsDiv.innerHTML = html;
 
-    // Premier dessin au chargement
-    drawGraph(matrix, labels);
-
-    // --- 4. LOGIQUE D'APPEL AU SERVEUR (Django) ---
-    async function lancerCalcul() {
-        const btn = document.getElementById('calc-button');
-        const btnText = document.getElementById('button-text');
-        const originalText = btnText.innerHTML;
-        
-        btn.disabled = true;
-        btnText.innerHTML = 'Calcul en cours <span class="spinner"></span>';
-        
-        try {
-            // Récupération des valeurs
-            const algo = document.getElementById('algo-select').value;
-            let matrixStr = document.getElementById('matrix-input').value.trim();
-            const labelsStr = document.getElementById('labels-input').value.trim();
-            const depart = document.getElementById('start-node').value.trim();
-            const arrivee = document.getElementById('end-node').value.trim();
-
-            // Validation basique
-            if (!matrixStr || !labelsStr) {
-                throw new Error('Veuillez remplir la matrice et les noms des nœuds');
-            }
-
-            if ((algo === 'dijkstra' || algo === 'bellman') && (!depart || !arrivee)) {
-                throw new Error('Veuillez spécifier les nœuds de départ et d\'arrivée');
-            }
-
-            // Appel AJAX vers l'API Django
-            const response = await fetch('/api/calculer/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({
-                    algo: algo,
-                    matrix: matrixStr,
-                    labels: labelsStr,
-                    depart: depart,
-                    arrivee: arrivee
-                })
-            });
-
-            const data = await response.json();
-            const resDiv = document.getElementById('resultat');
-            resDiv.style.display = 'block';
-
-            if (data.status === 'success') {
-                // Affichage formaté du résultat
-                let resultHTML = '<div class="success">✅ Résultat :</div>';
-                
-                if (typeof data.result === 'object') {
-                    resultHTML += '<pre>' + JSON.stringify(data.result, null, 2) + '</pre>';
                 } else {
-                    resultHTML += '<p>' + data.result + '</p>';
+                    resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur</h3><p>${data.error}</p></div>`;
+                    switchTab('res');
                 }
-                
-                resDiv.innerHTML = resultHTML;
-                
-                // Mise à jour du graphique
-                let cleanMatrixStr = matrixStr.replace(/'/g, '"').replace(/\binf\b/gi, 'null');
-                let currentMatrix = JSON.parse(cleanMatrixStr);
-                let currentLabels = labelsStr.split(',').map(s => s.trim());
 
-                drawGraph(currentMatrix, currentLabels, data.path || []);
-
-            } else {
-                resDiv.innerHTML = `<div class="error">❌ Erreur :</div><p>${data.error || data.result || 'Erreur inconnue'}</p>`;
-            }
-
-        } catch (err) {
-            console.error('Erreur:', err);
-            const resDiv = document.getElementById('resultat');
-            resDiv.style.display = 'block';
-            resDiv.innerHTML = `<div class="error">❌ Erreur :</div><p>${err.message}</p>`;
-        } finally {
-            btn.disabled = false;
-            btnText.innerHTML = originalText;
-        }
-    }
-
-    // Fonction utilitaire CSRF
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
+            } catch (err) {
+                console.error(err);
+                resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur Système</h3><p>${err}</p></div>`;
+                switchTab('res');
+            } finally {
+                btn.innerHTML = '▶ Lancer l\'analyse';
+                btn.disabled = false;
             }
         }
-        return cookieValue;
-    }
-    
-    // Initialiser l'affichage de l'algorithme
-    updateAlgoInfo();
-</script>
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Init graph
+        drawGraph(currentMatrix, currentLabels);
+        updateUIForAlgo();
+    </script>
 
 </body>
 </html>
