@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Projet Graphe - Interface de Pilotage</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
+        /* Barre latérale de commande */
+        #sidebar { 
+            width: 350px; 
+            padding: 20px; 
+            background: #f8f9fa; 
+            border-right: 1px solid #ddd; 
+            display: flex; 
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        /* Zone de dessin du graphe */
+        #graph-container { 
+            flex-grow: 1; 
+            background: #ffffff; 
+            cursor: move;
+        }
+
+        h2 { color: #333; margin-top: 0; }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; color: #555; }
+        
+        input[type="text"], select, textarea {
+            width: 100%; 
+            padding: 8px; 
+            box-sizing: border-box; 
+            border: 1px solid #ccc; 
+            border-radius: 4px;
+        }
+        
+        textarea { height: 120px; font-family: monospace; font-size: 11px; }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+
+        #resultat {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 5px;
+            border-left: 5px solid #007bff;
+            word-wrap: break-word;
+        }
+        
+        .row { display: flex; gap: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>🚀 Pilotage Graphe</h2>
+
+    <div class="control-group">
+        <label>Algorithme</label>
+        <select id="algo-select">
+            <option value="dijkstra">Dijkstra (Plus court chemin)</option>
+            <option value="bellman">Bellman-Ford (Détection cycles)</option>
+            </select>
+    </div>
+
+    <div class="control-group">
+        <label>Matrice (Liste de listes Python)</label>
+        <textarea id="matrix-input"></textarea>
+        <div style="font-size: 0.8em; color: #777; margin-top: 3px;">
+            Utilisez 'inf' pour l'infini. 0 pour distance nulle (soi-même).
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label>Villes (séparées par virgules)</label>
+        <input type="text" id="labels-input">
+    </div>
+
+    <div class="row">
+        <div class="control-group" style="flex:1">
+            <label>Départ</label>
+            <input type="text" id="start-node" placeholder="Ex: Rennes">
+        </div>
+        <div class="control-group" style="flex:1">
+            <label>Arrivée</label>
+            <input type="text" id="end-node" placeholder="Ex: Lyon">
+        </div>
+    </div>
+
+    <button onclick="lancerCalcul()">Lancer le calcul</button>
+
+    <div id="resultat" style="display:none;"></div>
+</div>
+
+<div id="graph-container"></div>
+
+<script>
+    // --- 1. INITIALISATION ---
+    // Récupération des données envoyées par Django (views.py)
+    let matrix = {{ default_matrix|safe }};
+    let labels = {{ default_villes|safe }};
+    let network = null;
+
+    // Remplissage des champs initiaux
+    document.getElementById('matrix-input').value = JSON.stringify(matrix).replace(/null/g, 'inf'); // Affiche 'inf' au lieu de null pour l'utilisateur
+    document.getElementById('labels-input').value = labels.join(', ');
+
+    // --- 2. FONCTION DE DESSIN (Vis.js) ---
+    function drawGraph(matrixData, labelsData, highlightPath = []) {
+        let nodes = [];
+        let edges = [];
+
+        // Création des noeuds (Villes)
+        labelsData.forEach((label, index) => {
+            let color = { background: '#D2E5FF', border: '#2B7CE9' };
+            let borderWidth = 1;
+
+            // Si la ville est dans le chemin résultat, on la colorie
+            if (highlightPath.includes(label)) {
+                color = { background: '#FFD700', border: '#FF8C00' }; // Jaune/Orange
+                borderWidth = 3;
+            }
+
+            nodes.push({
+                id: index, 
+                label: label, 
+                color: color, 
+                borderWidth: borderWidth,
+                font: { size: 16 }
+            });
+        });
+
+        // Création des arêtes (Routes)
+        for (let i = 0; i < matrixData.length; i++) {
+            for (let j = 0; j < matrixData.length; j++) {
+                let weight = matrixData[i][j];
+                
+                // On affiche l'arête si poids > 0 et pas infini
+                // Note : En JS venant du JSON, l'infini peut être 'inf' (string) ou null selon le parser
+                if (weight > 0 && weight !== "inf" && weight !== null && weight !== Infinity) {
+                    
+                    let edgeColor = '#848484';
+                    let width = 1;
+
+                    // Logique de surbrillance du chemin (simplifiée)
+                    // On vérifie si les deux villes sont dans le chemin ET adjacentes dans la liste du chemin
+                    let labelU = labelsData[i];
+                    let labelV = labelsData[j];
+                    let idxInPathU = highlightPath.indexOf(labelU);
+                    let idxInPathV = highlightPath.indexOf(labelV);
+
+                    if (idxInPathU !== -1 && idxInPathV !== -1) {
+                        // Vérifie s'ils se suivent directement (ex: A->B)
+                        if (Math.abs(idxInPathU - idxInPathV) === 1) {
+                            edgeColor = 'red';
+                            width = 3;
+                        }
+                    }
+
+                    edges.push({
+                        from: i, 
+                        to: j, 
+                        label: String(weight), 
+                        arrows: 'to', 
+                        color: edgeColor,
+                        width: width
+                    });
+                }
+            }
+        }
+
+        let container = document.getElementById('graph-container');
+        let data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+        let options = {
+            physics: {
+                enabled: true,
+                solver: 'forceAtlas2Based', // Bon algo pour écarter les noeuds
+                stabilization: { iterations: 100 }
+            },
+            edges: {
+                font: { align: 'top', size: 12 },
+                smooth: { type: 'dynamic' }
+            },
+            interaction: { hover: true }
+        };
+        network = new vis.Network(container, data, options);
+    }
+
+    // Premier dessin au chargement de la page
+    drawGraph(matrix, labels);
+
+
+    // --- 3. LOGIQUE D'APPEL AU SERVEUR (Django) ---
+    async function lancerCalcul() {
+        const btn = document.querySelector('button');
+        btn.textContent = "Calcul en cours...";
+        
+        try {
+            // Récupération des valeurs du formulaire
+            const algo = document.getElementById('algo-select').value;
+            let matrixStr = document.getElementById('matrix-input').value;
+            const labelsStr = document.getElementById('labels-input').value;
+            const depart = document.getElementById('start-node').value;
+            const arrivee = document.getElementById('end-node').value;
+
+            // Petit nettoyage côté client pour remettre 'inf' en format compréhensible si besoin
+            // (Mais le backend gère aussi)
+
+            // Appel AJAX vers ton API Django
+            const response = await fetch('/api/calculer/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken') // Sécurité Django obligatoire
+                },
+                body: JSON.stringify({
+                    algo: algo,
+                    matrix: matrixStr,
+                    labels: labelsStr,
+                    depart: depart,
+                    arrivee: arrivee
+                })
+            });
+
+            const data = await response.json();
+            const resDiv = document.getElementById('resultat');
+            resDiv.style.display = 'block';
+
+            if (data.status === 'success') {
+                // Affichage propre du JSON résultat
+                resDiv.innerHTML = `<strong>✅ Résultat :</strong><br><pre>${JSON.stringify(data.result, null, 2)}</pre>`;
+                
+                // --- Mise à jour du graphique ---
+                // On recrée les objets JS à partir des inputs (pour que le graphe reflète ce qui est écrit, même si modifié)
+                // Remplacement astucieux : 'inf' devient 'null' pour que JSON.parse ne plante pas
+                let cleanMatrixStr = matrixStr.replace(/'/g, '"').replace(/\binf\b/g, 'null'); 
+                let currentMatrix = JSON.parse(cleanMatrixStr);
+                let currentLabels = labelsStr.split(',').map(s => s.trim());
+
+                drawGraph(currentMatrix, currentLabels, data.path);
+
+            } else {
+                resDiv.innerHTML = `<strong>❌ Erreur :</strong> ${data.error || data.result.message}`;
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert("Une erreur technique est survenue. Vérifiez la console.");
+        } finally {
+            btn.textContent = "Lancer le calcul";
+        }
+    }
+
+    // Fonction utilitaire pour récupérer le cookie CSRF (Sécurité Django)
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+</body>
+</html>
