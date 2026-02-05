@@ -4,7 +4,7 @@ import json
 import ast
 import traceback
 
-from . import dijkstra, bellmanford, Floyd_Warshall, Matrice, MethodePert
+from . import dijkstra, bellmanford, Floyd_Warshall, Matrice, MethodePert, bfs_dfs, prim_kruskal
 
 def index(request):
     """Page d'accueil avec données par défaut."""
@@ -117,6 +117,54 @@ def calculer(request):
             readable = [[("∞" if x == float('inf') else x) for x in row] for row in dist_matrix]
             resultat['matrice'] = readable
 
+        elif algo == 'bfs':
+            res = bfs_dfs.bfs(depart, matrix=matrix, labels=labels)
+            if isinstance(res, dict) and "error" in res:
+                resultat = res
+            else:
+                path_nodes = res
+                resultat = {'parcours': ' → '.join(res), 'type': 'BFS'}
+
+        elif algo == 'dfs':
+            res = bfs_dfs.dfs(depart, matrix=matrix, labels=labels)
+            if isinstance(res, dict) and "error" in res:
+                resultat = res
+            else:
+                path_nodes = res
+                resultat = {'parcours': ' → '.join(res), 'type': 'DFS'}
+
+        elif algo == 'prim':
+            res = prim_kruskal.prim(depart, matrix=matrix, labels=labels)
+            if "error" in res:
+                resultat = res
+            else:
+                # Récupérer les arêtes pour le graphe
+                edges = res['edges']
+                path_nodes = []
+                for edge in edges:
+                    path_nodes.extend(edge)  # Ajouter les deux extrémités
+                resultat = {
+                    'aretes': [f"{u} -- {v}" for u, v in edges],
+                    'poids_total': res['weight'],
+                    'nombre_aretes': len(edges)
+                }
+
+        elif algo == 'kruskal':
+            res = prim_kruskal.kruskal(matrix=matrix, labels=labels)
+            if "error" in res:
+                resultat = res
+            else:
+                # Récupérer les arêtes pour le graphe
+                edges = res['edges']
+                path_nodes = []
+                for edge in edges:
+                    path_nodes.extend(edge)  # Ajouter les deux extrémités
+                resultat = {
+                    'aretes': [f"{u} -- {v}" for u, v in edges],
+                    'poids_total': res['weight'],
+                    'nombre_aretes': len(edges)
+                }
+
         elif algo == 'pert':
             # 1. Récupération des données
             custom_tasks_str = data.get('pert_data')
@@ -124,20 +172,25 @@ def calculer(request):
             
             if custom_tasks_str:
                 try:
-                    # On convertit le JSON reçu en dictionnaire Python
                     taches_projet = json.loads(custom_tasks_str)
                 except json.JSONDecodeError:
                     return JsonResponse({'status': 'error', 'error': 'Format JSON des tâches invalide'})
             
-            # Si pas de données custom, on utilise celles par défaut (gérées dans calcul_pert si None)
+            # 2. Calcul via la méthode PERT
+            # On récupère le résultat complet (dictionnaire)
+            res_pert = MethodePert.calcul_pert(taches_projet)
             
-            # 2. Calcul
-            # On passe taches_projet (qui est soit le dict custom, soit None)
-            chemin = MethodePert.calcul_pert(taches_projet)
-            path_nodes = chemin
+            # Gestion d'erreur renvoyée par MethodePert (ex: cycle détecté)
+            if 'erreur' in res_pert:
+                return JsonResponse({'status': 'error', 'error': res_pert['erreur']})
+
+            # CORRECTION ICI : On extrait la liste du chemin critique pour le surlignage
+            path_nodes = res_pert['chemin_critique']
             
-            # 3. Construction du graphe PERT pour l'affichage
-            # Si on a utilisé le custom, on prend le custom, sinon le défaut
+            # On passe tout le résultat au frontend pour l'onglet "Résultats détaillés"
+            resultat = res_pert
+            
+            # 3. Construction du graphe PERT pour l'affichage (Matrice d'adjacence visuelle)
             if taches_projet:
                 taches = taches_projet
             else:
@@ -145,6 +198,7 @@ def calculer(request):
                 
             pert_labels = list(taches.keys())
             n_p = len(pert_labels)
+            # Initialisation matrice vide
             pert_matrix = [[0]*n_p for _ in range(n_p)]
             
             for t_idx, t_name in enumerate(pert_labels):
@@ -152,9 +206,10 @@ def calculer(request):
                     for pred in taches[t_name]['predecesseurs']:
                         if pred in pert_labels:
                             p_idx = pert_labels.index(pred)
+                            # On met la durée du prédécesseur comme poids de l'arc (pour info visuelle)
+                            # Ou on met simplement 1 pour marquer le lien. 
+                            # Ici on garde la durée du noeud source (convention visuelle)
                             pert_matrix[p_idx][t_idx] = taches[pred]['duree']
-            
-            resultat = {'chemin_critique': chemin}
             
             new_graph_data = {
                 'matrix': pert_matrix,

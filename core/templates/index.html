@@ -284,6 +284,10 @@
                     <option value="dijkstra">Dijkstra (Plus court chemin)</option>
                     <option value="bellman">Bellman-Ford (Cycles négatifs)</option>
                     <option value="floyd">Floyd-Warshall (Toutes distances)</option>
+                    <option value="bfs">BFS (Parcours en Largeur)</option>
+                    <option value="dfs">DFS (Parcours en Profondeur)</option>
+                    <option value="prim">Prim (Arbre couvrant min)</option>
+                    <option value="kruskal">Kruskal (Arbre couvrant min)</option>
                     <option value="pert">PERT (Ordonnancement)</option>
                 </select>
             </div>
@@ -401,6 +405,10 @@
             const standardInputs = document.getElementById('standard-inputs');
             const pertInputs = document.getElementById('pert-inputs');
 
+            // Par défaut : masquer les labels end pour tous les algos
+            endLabel.style.display = 'none';
+            endInput.style.display = 'none';
+
             if (algo === 'pert') {
                 nodeParams.style.display = 'none';
                 // Si on est en mode Custom, on affiche l'input PERT
@@ -408,14 +416,24 @@
                     standardInputs.style.display = 'none';
                     pertInputs.style.display = 'block';
                 }
-            } else if (algo === 'floyd') {
+            } else if (algo === 'floyd' || algo === 'kruskal') {
+                // Floyd et Kruskal : pas besoin de points de départ/arrivée
                 nodeParams.style.display = 'none';
                 if (isCustom) {
                     standardInputs.style.display = 'block';
                     pertInputs.style.display = 'none';
                 }
+            } else if (algo === 'bfs' || algo === 'dfs' || algo === 'prim') {
+                // BFS, DFS, Prim : besoin du départ SEULEMENT
+                nodeParams.style.display = 'block';
+                endLabel.style.display = 'none';
+                endInput.style.display = 'none';
+                if (isCustom) {
+                    standardInputs.style.display = 'block';
+                    pertInputs.style.display = 'none';
+                }
             } else {
-                // Dijkstra / Bellman
+                // Dijkstra / Bellman : besoin du départ et arrivée
                 nodeParams.style.display = 'block';
                 if (isCustom) {
                     standardInputs.style.display = 'block';
@@ -425,7 +443,7 @@
                 if (algo === 'bellman') {
                     endLabel.style.display = 'none';
                     endInput.style.display = 'none';
-                } else {
+                } else if (algo === 'dijkstra') {
                     endLabel.style.display = 'block';
                     endInput.style.display = 'block';
                 }
