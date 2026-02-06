@@ -1,28 +1,38 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Projet ALMF51 - Algorithmes de Graphes</title>
-    
+
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
     <style>
         /* --- 1. VARIABLES & RESET --- */
         :root {
             --primary: #0a0e27;
             --secondary: #1a1f3a;
-            --accent: #00ff88;     /* Vert Néon */
-            --accent-2: #ff3366;   /* Rose Néon */
-            --accent-3: #ffaa00;   /* Orange/Or */
+            --accent: #00ff88;
+            /* Vert Néon */
+            --accent-2: #ff3366;
+            /* Rose Néon */
+            --accent-3: #ffaa00;
+            /* Orange/Or */
             --text: #e8e8f0;
             --text-muted: #9b9baa;
             --border: #2a2f4a;
             --glass: rgba(26, 31, 58, 0.7);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Space Mono', monospace;
@@ -78,7 +88,10 @@
             padding-bottom: 15px;
         }
 
-        .control-section { margin-bottom: 25px; }
+        .control-section {
+            margin-bottom: 25px;
+        }
+
         .control-title {
             color: var(--accent);
             font-family: 'Syne', sans-serif;
@@ -89,7 +102,7 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         label {
             display: block;
             font-size: 0.8rem;
@@ -98,7 +111,9 @@
             text-transform: uppercase;
         }
 
-        input, select, textarea {
+        input,
+        select,
+        textarea {
             width: 100%;
             padding: 12px;
             background: rgba(0, 0, 0, 0.2);
@@ -111,14 +126,20 @@
             transition: 0.3s;
         }
 
-        input:focus, select:focus, textarea:focus {
+        input:focus,
+        select:focus,
+        textarea:focus {
             outline: none;
             border-color: var(--accent);
             background: rgba(0, 255, 136, 0.05);
             box-shadow: 0 0 15px rgba(0, 255, 136, 0.1);
         }
 
-        textarea { resize: vertical; min-height: 100px; font-size: 0.8rem; }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-size: 0.8rem;
+        }
 
         .btn {
             width: 100%;
@@ -139,13 +160,18 @@
             color: #000;
             box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
         }
 
-        .toggle-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
         .toggle-btn {
             flex: 1;
             padding: 10px;
@@ -157,6 +183,7 @@
             font-size: 0.8rem;
             transition: 0.3s;
         }
+
         .toggle-btn.active {
             border-color: var(--accent);
             color: var(--accent);
@@ -173,7 +200,8 @@
             flex-direction: column;
             backdrop-filter: blur(20px);
             position: relative;
-            overflow: hidden; /* Important pour que le flex fonctionne bien */
+            overflow: hidden;
+            /* Important pour que le flex fonctionne bien */
         }
 
         .header-bar {
@@ -184,7 +212,11 @@
             flex-shrink: 0;
         }
 
-        .tabs { display: flex; gap: 15px; }
+        .tabs {
+            display: flex;
+            gap: 15px;
+        }
+
         .tab {
             padding: 10px 20px;
             border-radius: 20px;
@@ -193,7 +225,12 @@
             color: var(--text-muted);
             transition: 0.3s;
         }
-        .tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        .tab:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
         .tab.active {
             border-color: var(--accent-3);
             color: var(--accent-3);
@@ -208,9 +245,12 @@
             border: 1px solid var(--border);
             position: relative;
             width: 100%;
-            height: 100%; /* Force la hauteur */
-            min-height: 500px; /* Sécurité */
-            display: block; /* Toujours visible pour initialisation */
+            height: 100%;
+            /* Force la hauteur */
+            min-height: 500px;
+            /* Sécurité */
+            display: block;
+            /* Toujours visible pour initialisation */
         }
 
         #results-panel {
@@ -231,47 +271,62 @@
             border-radius: 0 12px 12px 0;
             margin-bottom: 20px;
         }
-        .result-card h3 { color: var(--accent); margin-bottom: 10px; font-family: 'Syne'; }
-        pre { color: var(--text); overflow-x: auto; font-size: 0.9rem; }
-        
-        .error-msg { border-left-color: var(--accent-2); color: var(--accent-2); }
+
+        .result-card h3 {
+            color: var(--accent);
+            margin-bottom: 10px;
+            font-family: 'Syne';
+        }
+
+        pre {
+            color: var(--text);
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+
+        .error-msg {
+            border-left-color: var(--accent-2);
+            color: var(--accent-2);
+        }
+
         /* Liste des arêtes */
-.edge-list {
-    list-style: none;
-    padding: 0;
-    margin: 10px 0;
-}
+        .edge-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+        }
 
-.edge-list li {
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.03);
-    border-left: 3px solid var(--accent-2);
-    margin-bottom: 6px;
-    border-radius: 0 6px 6px 0;
-    font-size: 0.9rem;
-}
+        .edge-list li {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid var(--accent-2);
+            margin-bottom: 6px;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.9rem;
+        }
 
-.result-section {
-    margin-bottom: 25px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
+        .result-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-.result-section h4 {
-    color: var(--accent-3);
-    font-family: 'Syne', sans-serif;
-    font-size: 1rem;
-    margin-bottom: 12px;
-    font-weight: 600;
-}
+        .result-section h4 {
+            color: var(--accent-3);
+            font-family: 'Syne', sans-serif;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
     </style>
 </head>
+
 <body>
 
     <div style="display:none">{% csrf_token %}</div>
 
     <div class="app-container">
-        
+
         <aside class="sidebar">
             <div class="brand">
                 <h1>ALMF51</h1>
@@ -281,27 +336,28 @@
             <div class="control-section">
                 <div class="control-title">💾 Données</div>
                 <div class="toggle-group">
-                    <button class="toggle-btn active" onclick="toggleSource('default')" id="btn-default">Par Défaut</button>
+                    <button class="toggle-btn active" onclick="toggleSource('default')" id="btn-default">Par
+                        Défaut</button>
                     <button class="toggle-btn" onclick="toggleSource('custom')" id="btn-custom">Custom</button>
                 </div>
-                
-                <div id="custom-inputs" style="display: none;">
-                <div id="standard-inputs">
-                    <label>Labels (séparées par virgules)</label>
-                    <input type="text" id="labels-input">
-                    
-                    <label>Matrice (Liste Python ou JSON)</label>
-                    <textarea id="matrix-input"></textarea>
-                </div>
 
-                <div id="pert-inputs" style="display: none;">
-                    <label>Tâches (Format JSON)</label>
-                    <div style="font-size: 0.7rem; color: #9b9baa; margin-bottom: 5px;">
-                        Ex: {"A": {"duree": 3, "predecesseurs": []}, "B": {"duree": 2, "predecesseurs": ["A"]}}
+                <div id="custom-inputs" style="display: none;">
+                    <div id="standard-inputs">
+                        <label>Labels (séparées par virgules)</label>
+                        <input type="text" id="labels-input">
+
+                        <label>Matrice (Liste Python ou JSON)</label>
+                        <textarea id="matrix-input"></textarea>
                     </div>
-                    <textarea id="pert-json-input" style="height: 200px; font-family: monospace;"></textarea>
+
+                    <div id="pert-inputs" style="display: none;">
+                        <label>Tâches (Format JSON)</label>
+                        <div style="font-size: 0.7rem; color: #9b9baa; margin-bottom: 5px;">
+                            Ex: {"A": {"duree": 3, "predecesseurs": []}, "B": {"duree": 2, "predecesseurs": ["A"]}}
+                        </div>
+                        <textarea id="pert-json-input" style="height: 200px; font-family: monospace;"></textarea>
+                    </div>
                 </div>
-            </div>
                 <div id="default-info" style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">
                     Utilisation de la carte de France par défaut (10 villes).
                 </div>
@@ -325,7 +381,7 @@
                 <div class="control-title">📍 Paramètres</div>
                 <label>Départ</label>
                 <input type="text" id="start-node" placeholder="Ex: Bordeaux">
-                
+
                 <label id="end-label">Arrivée</label>
                 <input type="text" id="end-node" placeholder="Ex: Lille">
             </div>
@@ -347,7 +403,7 @@
             </div>
 
             <div id="graph-container"></div>
-            
+
             <div id="results-panel">
                 <div style="text-align: center; color: var(--text-muted); margin-top: 50px;">
                     <h2>Résultats</h2>
@@ -360,8 +416,8 @@
 
     <script>
         // --- DATA ---
-        let defaultMatrix = {{ default_matrix|safe }};
-        let defaultLabels = {{ default_villes|safe }};
+        let defaultMatrix = {{ default_matrix| safe }};
+        let defaultLabels = {{ default_villes| safe }};
         let currentMatrix = defaultMatrix;
         let currentLabels = defaultLabels;
         let network = null;
@@ -384,10 +440,10 @@
                 viewRes.style.display = 'none';
                 tabVisu.classList.add('active');
                 tabRes.classList.remove('active');
-                
+
                 // IMPORTANT: Forcer le redessin si Vis.js s'est initialisé caché
-                if(network) {
-                    network.fit(); 
+                if (network) {
+                    network.fit();
                 }
             } else {
                 viewVisu.style.display = 'none';
@@ -429,7 +485,7 @@
             const nodeParams = document.getElementById('node-params');
             const endLabel = document.getElementById('end-label');
             const endInput = document.getElementById('end-node');
-            
+
             // Gestion des inputs Custom (Matrice vs PERT JSON)
             const standardInputs = document.getElementById('standard-inputs');
             const pertInputs = document.getElementById('pert-inputs');
@@ -481,212 +537,212 @@
 
         // --- VIS.JS ---
         function drawGraph(matrixData, labelsData, highlightPath = [], highlightEdges = []) {
-    let nodes = [];
-    let edges = [];
+            let nodes = [];
+            let edges = [];
 
-    // Noeuds
-    labelsData.forEach((label, index) => {
-        let colorBg = '#0a0e27';
-        let colorBorder = '#00ff88'; 
-        let size = 25;
-        let shadowColor = 'rgba(0, 255, 136, 0.5)';
+            // Noeuds
+            labelsData.forEach((label, index) => {
+                let colorBg = '#0a0e27';
+                let colorBorder = '#00ff88';
+                let size = 25;
+                let shadowColor = 'rgba(0, 255, 136, 0.5)';
 
-        // Mise en surbrillance des nœuds dans le chemin
-        if (highlightPath.includes(label)) {
-            colorBg = '#00ff88';
-            colorBorder = '#ffffff';
-            shadowColor = '#00ff88';
-            size = 35;
-        }
-
-        nodes.push({
-            id: index, 
-            label: label, 
-            color: {
-                background: colorBg,
-                border: colorBorder,
-                highlight: { background: '#ffaa00', border: '#FFF' }
-            },
-            borderWidth: 2,
-            font: { color: '#e8e8f0', face: 'Space Mono', size: 14 },
-            shape: 'dot',
-            size: size,
-            shadow: { enabled: true, color: shadowColor, size: 10 }
-        });
-    });
-
-    // Arêtes - Gestion des arêtes en surbrillance
-    const edgeMap = new Map(); // Pour éviter les doublons
-    
-    for (let i = 0; i < matrixData.length; i++) {
-        for (let j = 0; j < matrixData.length; j++) {
-            let weight = matrixData[i][j];
-            
-            if (weight > 0 && weight !== "inf" && weight !== Infinity && weight !== null) {
-                
-                const u = labelsData[i];
-                const v = labelsData[j];
-                const edgeKey = `${i}-${j}`;
-                
-                // Par défaut : arête normale
-                let edgeColor = 'rgba(255, 255, 255, 0.2)';
-                let width = 1;
-                let fontColor = 'rgba(255,255,255,0.4)';
-                let arrows = 'to';
-                
-                // Vérifier si cette arête fait partie des arêtes en surbrillance
-                const isHighlightedEdge = highlightEdges.some(
-    edge => (edge[0] === u && edge[1] === v) || (edge[0] === v && edge[1] === u)
-);
-
-if (isHighlightedEdge) {
-    edgeColor = '#ff3366';
-    width = 4;
-    fontColor = '#ff3366';
-    arrows = ''; // Pas de flèche pour les arbres
-} else {
-                    // Vérifier si c'est une arête de chemin (pour Dijkstra/Bellman)
-                    let idxU = highlightPath.indexOf(u);
-                    let idxV = highlightPath.indexOf(v);
-                    
-                    if (idxU !== -1 && idxV !== -1 && Math.abs(idxU - idxV) === 1) {
-                        edgeColor = '#ffaa00'; 
-                        width = 3;
-                        fontColor = '#ffaa00';
-                    }
+                // Mise en surbrillance des nœuds dans le chemin
+                if (highlightPath.includes(label)) {
+                    colorBg = '#00ff88';
+                    colorBorder = '#ffffff';
+                    shadowColor = '#00ff88';
+                    size = 35;
                 }
 
-                edges.push({
-                    from: i, 
-                    to: j, 
-                    label: String(weight), 
-                    arrows: arrows, 
-                    color: { color: edgeColor, highlight: '#ffaa00' },
-                    width: width,
-                    font: { color: fontColor, strokeWidth: 0, align: 'top' }
+                nodes.push({
+                    id: index,
+                    label: label,
+                    color: {
+                        background: colorBg,
+                        border: colorBorder,
+                        highlight: { background: '#ffaa00', border: '#FFF' }
+                    },
+                    borderWidth: 2,
+                    font: { color: '#e8e8f0', face: 'Space Mono', size: 14 },
+                    shape: 'dot',
+                    size: size,
+                    shadow: { enabled: true, color: shadowColor, size: 10 }
                 });
-            }
-        }
-    }
+            });
 
-    let container = document.getElementById('graph-container');
-    let data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-    let options = {
-        physics: {
-            enabled: true,
-            solver: 'forceAtlas2Based',
-            forceAtlas2Based: { 
-                gravitationalConstant: -60, 
-                springLength: 150,
-                avoidOverlap: 1
-            },
-            stabilization: { iterations: 150 }
-        },
-        interaction: { hover: true, zoomView: true },
-        layout: { randomSeed: 2 }
-    };
-    
-    if (network) network.destroy();
-    network = new vis.Network(container, data, options);
-}
+            // Arêtes - Gestion des arêtes en surbrillance
+            const edgeMap = new Map(); // Pour éviter les doublons
+
+            for (let i = 0; i < matrixData.length; i++) {
+                for (let j = 0; j < matrixData.length; j++) {
+                    let weight = matrixData[i][j];
+
+                    if (weight > 0 && weight !== "inf" && weight !== Infinity && weight !== null) {
+
+                        const u = labelsData[i];
+                        const v = labelsData[j];
+                        const edgeKey = `${i}-${j}`;
+
+                        // Par défaut : arête normale
+                        let edgeColor = 'rgba(255, 255, 255, 0.2)';
+                        let width = 1;
+                        let fontColor = 'rgba(255,255,255,0.4)';
+                        let arrows = 'to';
+
+                        // Vérifier si cette arête fait partie des arêtes en surbrillance
+                        const isHighlightedEdge = highlightEdges.some(
+                            edge => (edge[0] === u && edge[1] === v) || (edge[0] === v && edge[1] === u)
+                        );
+
+                        if (isHighlightedEdge) {
+                            edgeColor = '#ff3366';
+                            width = 4;
+                            fontColor = '#ff3366';
+                            arrows = ''; // Pas de flèche pour les arbres
+                        } else {
+                            // Vérifier si c'est une arête de chemin (pour Dijkstra/Bellman)
+                            let idxU = highlightPath.indexOf(u);
+                            let idxV = highlightPath.indexOf(v);
+
+                            if (idxU !== -1 && idxV !== -1 && Math.abs(idxU - idxV) === 1) {
+                                edgeColor = '#ffaa00';
+                                width = 3;
+                                fontColor = '#ffaa00';
+                            }
+                        }
+
+                        edges.push({
+                            from: i,
+                            to: j,
+                            label: String(weight),
+                            arrows: arrows,
+                            color: { color: edgeColor, highlight: '#ffaa00' },
+                            width: width,
+                            font: { color: fontColor, strokeWidth: 0, align: 'top' }
+                        });
+                    }
+                }
+            }
+
+            let container = document.getElementById('graph-container');
+            let data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            let options = {
+                physics: {
+                    enabled: true,
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: {
+                        gravitationalConstant: -60,
+                        springLength: 150,
+                        avoidOverlap: 1
+                    },
+                    stabilization: { iterations: 150 }
+                },
+                interaction: { hover: true, zoomView: true },
+                layout: { randomSeed: 2 }
+            };
+
+            if (network) network.destroy();
+            network = new vis.Network(container, data, options);
+        }
 
         // --- APPEL API ---
         async function lancerCalcul() {
-    const btn = document.getElementById('btn-run');
-    const resultsDiv = document.getElementById('results-panel');
-    
-    btn.innerHTML = '⏳ Calcul...';
-    btn.disabled = true;
+            const btn = document.getElementById('btn-run');
+            const resultsDiv = document.getElementById('results-panel');
 
-    try {
-        const algo = document.getElementById('algo-select').value;
-        let mStr = null, lStr = null, pertStr = null;
+            btn.innerHTML = '⏳ Calcul...';
+            btn.disabled = true;
 
-        if (isCustom) {
-            if (algo === 'pert') {
-                pertStr = document.getElementById('pert-json-input').value;
-            } else {
-                mStr = document.getElementById('matrix-input').value;
-                lStr = document.getElementById('labels-input').value;
+            try {
+                const algo = document.getElementById('algo-select').value;
+                let mStr = null, lStr = null, pertStr = null;
+
+                if (isCustom) {
+                    if (algo === 'pert') {
+                        pertStr = document.getElementById('pert-json-input').value;
+                    } else {
+                        mStr = document.getElementById('matrix-input').value;
+                        lStr = document.getElementById('labels-input').value;
+                    }
+                } else {
+                    mStr = JSON.stringify(defaultMatrix);
+                    lStr = defaultLabels.join(', ');
+                }
+
+                const depart = document.getElementById('start-node').value;
+                const arrivee = document.getElementById('end-node').value;
+
+                const response = await fetch('/api/calculer/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        algo: algo,
+                        matrix: mStr,
+                        labels: lStr,
+                        pert_data: pertStr,
+                        depart: depart,
+                        arrivee: arrivee
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // Mise à jour du graphe
+                    if (data.new_graph) {
+                        currentMatrix = data.new_graph.matrix;
+                        currentLabels = data.new_graph.labels;
+                        document.getElementById('node-count').innerText = currentLabels.length;
+
+                        // Récupération des arêtes en surbrillance
+                        const highlightEdges = data.new_graph.highlight_edges || [];
+
+                        switchTab('visu');
+
+                        setTimeout(() => {
+                            drawGraph(currentMatrix, currentLabels, data.path, highlightEdges);
+                        }, 50);
+
+                    } else if (isCustom && algo !== 'pert') {
+                        try {
+                            currentMatrix = JSON.parse(mStr.replace(/'/g, '"').replace(/inf/g, 'null'));
+                            currentLabels = lStr.split(',').map(s => s.trim());
+                        } catch (e) { }
+
+                        switchTab('visu');
+
+                        setTimeout(() => {
+                            drawGraph(currentMatrix, currentLabels, data.path);
+                        }, 50);
+                    } else {
+                        switchTab('visu');
+
+                        setTimeout(() => {
+                            drawGraph(currentMatrix, currentLabels, data.path);
+                        }, 50);
+                    }
+
+                    // Affichage des résultats
+                    resultsDiv.innerHTML = formatResultDisplay(data);
+
+                } else {
+                    resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur</h3><p>${data.error}</p></div>`;
+                    switchTab('res');
+                }
+
+            } catch (err) {
+                console.error(err);
+                resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur Système</h3><p>${err}</p></div>`;
+                switchTab('res');
+            } finally {
+                btn.innerHTML = '▶ Lancer l\'analyse';
+                btn.disabled = false;
             }
-        } else {
-            mStr = JSON.stringify(defaultMatrix);
-            lStr = defaultLabels.join(', ');
         }
-
-        const depart = document.getElementById('start-node').value;
-        const arrivee = document.getElementById('end-node').value;
-
-        const response = await fetch('/api/calculer/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                algo: algo, 
-                matrix: mStr, 
-                labels: lStr,
-                pert_data: pertStr,
-                depart: depart, 
-                arrivee: arrivee
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'success') {
-            // Mise à jour du graphe
-            if (data.new_graph) {
-                currentMatrix = data.new_graph.matrix;
-                currentLabels = data.new_graph.labels;
-                document.getElementById('node-count').innerText = currentLabels.length;
-                
-                // Récupération des arêtes en surbrillance
-                const highlightEdges = data.new_graph.highlight_edges || [];
-                
-                switchTab('visu');
-                
-                setTimeout(() => {
-                    drawGraph(currentMatrix, currentLabels, data.path, highlightEdges);
-                }, 50);
-                
-            } else if (isCustom && algo !== 'pert') {
-                try {
-                    currentMatrix = JSON.parse(mStr.replace(/'/g, '"').replace(/inf/g, 'null'));
-                    currentLabels = lStr.split(',').map(s => s.trim());
-                } catch(e) {}
-                
-                switchTab('visu');
-                
-                setTimeout(() => {
-                    drawGraph(currentMatrix, currentLabels, data.path);
-                }, 50);
-            } else {
-                switchTab('visu');
-                
-                setTimeout(() => {
-                    drawGraph(currentMatrix, currentLabels, data.path);
-                }, 50);
-            }
-
-            // Affichage des résultats
-            resultsDiv.innerHTML = formatResultDisplay(data);
-
-        } else {
-            resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur</h3><p>${data.error}</p></div>`;
-            switchTab('res');
-        }
-
-    } catch (err) {
-        console.error(err);
-        resultsDiv.innerHTML = `<div class="result-card error-msg"><h3>❌ Erreur Système</h3><p>${err}</p></div>`;
-        switchTab('res');
-    } finally {
-        btn.innerHTML = '▶ Lancer l\'analyse';
-        btn.disabled = false;
-    }
-}
 
         function getCookie(name) {
             let cookieValue = null;
@@ -704,14 +760,14 @@ if (isHighlightedEdge) {
         }
 
         function formatResultDisplay(data) {
-    const result = data.result;
-    let html = `<div class="result-card">`;
-    
-    html += `<h3>✅ ${result.type || 'Résultat'}</h3>`;
-    
-    // --- DIJKSTRA ---
-    if (result.type && result.type.includes('Dijkstra')) {
-        html += `
+            const result = data.result;
+            let html = `<div class="result-card">`;
+
+            html += `<h3>✅ ${result.type || 'Résultat'}</h3>`;
+
+            // --- DIJKSTRA ---
+            if (result.type && result.type.includes('Dijkstra')) {
+                html += `
             <div class="result-section">
                 <p><strong>📍 Départ :</strong> ${result.depart}</p>
                 <p><strong>🎯 Arrivée :</strong> ${result.arrivee}</p>
@@ -722,19 +778,19 @@ if (isHighlightedEdge) {
                 <div class="path-display">${result.chemin.split(' -> ').map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
             </div>
         `;
-    }
-    
-    // --- BELLMAN-FORD (Corrigé) ---
-    else if (result.type && result.type.includes('Bellman-Ford')) {
-        if (result.alerte) {
-            html += `
+            }
+
+            // --- BELLMAN-FORD (Corrigé) ---
+            else if (result.type && result.type.includes('Bellman-Ford')) {
+                if (result.alerte) {
+                    html += `
                 <div class="alert-box">
                     <p style="font-size: 1.2em; color: var(--accent-2);">${result.alerte}</p>
                     <p><strong>Cycle :</strong> ${result.cycle.map(n => `<span class="node-badge cycle">${n}</span>`).join(' → ')}</p>
                 </div>
             `;
-        } else {
-            html += `
+                } else {
+                    html += `
                 <div class="result-section">
                     <p><strong>📍 Départ :</strong> ${result.depart}</p>
                 </div>
@@ -742,27 +798,27 @@ if (isHighlightedEdge) {
                     <h4>📏 Distances depuis ${result.depart} :</h4>
                     <table class="distance-table"><thead><tr><th>Ville</th><th>Distance</th></tr></thead><tbody>
             `;
-            for (const [ville, dist] of Object.entries(result.distances)) {
-                html += `<tr><td>${ville}</td><td>${dist}</td></tr>`;
-            }
-            html += `</tbody></table></div>`;
-            
-            // CORRECTION ICI : Utilisation de 'chemin_texte' et 'dist_arrivee'
-            if (result.chemin_texte) {
-                html += `
+                    for (const [ville, dist] of Object.entries(result.distances)) {
+                        html += `<tr><td>${ville}</td><td>${dist}</td></tr>`;
+                    }
+                    html += `</tbody></table></div>`;
+
+                    // CORRECTION ICI : Utilisation de 'chemin_texte' et 'dist_arrivee'
+                    if (result.chemin_texte) {
+                        html += `
                     <div class="result-section">
                         <h4>🛣️ Chemin optimal :</h4>
                         <div class="path-display">${result.chemin_texte.split(' → ').map(n => `<span class="node-badge">${n}</span>`).join(' → ')}</div>
                         <p><strong>Distance :</strong> ${result.dist_arrivee} km</p>
                     </div>
                 `;
+                    }
+                }
             }
-        }
-    }
-    
-    // --- FLOYD ---
-    else if (result.type && result.type.includes('Floyd')) {
-        html += `
+
+            // --- FLOYD ---
+            else if (result.type && result.type.includes('Floyd')) {
+                html += `
             <div class="result-section">
                 <p><strong>⭐ Central :</strong> ${result.noeud_central || 'Aucun'}</p>
             </div>
@@ -770,15 +826,15 @@ if (isHighlightedEdge) {
                 <h4>🗺️ Matrice :</h4>
                 <div style="overflow-x:auto;"><table class="matrix-table"><tbody>
         `;
-        result.matrice_distances.forEach(row => {
-            html += '<tr>' + row.map(v => `<td>${v}</td>`).join('') + '</tr>';
-        });
-        html += `</tbody></table></div></div>`;
-    }
-    
-    // --- BFS / DFS ---
-    else if (result.type && (result.type === 'BFS' || result.type === 'DFS')) {
-        html += `
+                result.matrice_distances.forEach(row => {
+                    html += '<tr>' + row.map(v => `<td>${v}</td>`).join('') + '</tr>';
+                });
+                html += `</tbody></table></div></div>`;
+            }
+
+            // --- BFS / DFS ---
+            else if (result.type && (result.type === 'BFS' || result.type === 'DFS')) {
+                html += `
             <div class="result-section">
                 <p><strong>Nœuds visités :</strong> ${result.ordre_visite.length}</p>
             </div>
@@ -791,11 +847,11 @@ if (isHighlightedEdge) {
                 <ul class="edge-list">${result.aretes_arbre.map(a => `<li>${a}</li>`).join('')}</ul>
             </div>
         `;
-    }
+            }
 
-    // --- PRIM / KRUSKAL ---
-    else if (result.type && (result.type === 'Prim' || result.type === 'Kruskal')) {
-        html += `
+            // --- PRIM / KRUSKAL ---
+            else if (result.type && (result.type === 'Prim' || result.type === 'Kruskal')) {
+                html += `
             <div class="result-section">
                 <p><strong>⚖️ Coût total :</strong> ${result.poids_total}</p>
             </div>
@@ -804,11 +860,11 @@ if (isHighlightedEdge) {
                 <ul class="edge-list">${result.aretes.map(a => `<li>${a}</li>`).join('')}</ul>
             </div>
         `;
-    }
-    
-    // --- PERT (Corrigé) ---
-    else if (result.type && result.type.includes('PERT')) {
-        html += `
+            }
+
+            // --- PERT (Corrigé) ---
+            else if (result.type && result.type.includes('PERT')) {
+                html += `
             <div class="result-section">
                 <p><strong>⏱️ Durée :</strong> ${result.duree_projet}</p>
                 <p><strong>⚠️ Critiques :</strong> ${result.taches_critiques_count} / ${result.taches_totales}</p>
@@ -823,19 +879,19 @@ if (isHighlightedEdge) {
                     <thead><tr><th>Tâche</th><th>Durée</th><th>Marge</th><th>Critique</th></tr></thead>
                     <tbody>
         `;
-        for (const [t, info] of Object.entries(result.details)) {
-            html += `<tr class="${info.critique ? 'critical-row' : ''}"><td>${t}</td><td>${info.duree}</td><td>${info.marge_totale}</td><td>${info.critique ? 'Oui' : 'Non'}</td></tr>`;
+                for (const [t, info] of Object.entries(result.details)) {
+                    html += `<tr class="${info.critique ? 'critical-row' : ''}"><td>${t}</td><td>${info.duree}</td><td>${info.marge_totale}</td><td>${info.critique ? 'Oui' : 'Non'}</td></tr>`;
+                }
+                html += `</tbody></table></div>`;
+            }
+
+            else {
+                html += `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            }
+
+            html += `</div>`;
+            return html;
         }
-        html += `</tbody></table></div>`;
-    }
-    
-    else {
-        html += `<pre>${JSON.stringify(result, null, 2)}</pre>`;
-    }
-    
-    html += `</div>`;
-    return html;
-}
 
         // Init graph
         drawGraph(currentMatrix, currentLabels);
@@ -843,4 +899,5 @@ if (isHighlightedEdge) {
     </script>
 
 </body>
+
 </html>
